@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Manage Medicines | MediCare Admin Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav>
+
+    <a href="dashboard.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag admin">Admin Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="medicines.html" class="active">Medicines</a>
+        <a href="stock-report.html">Stock Report</a>
+        <a href="sales-report.html">Sales Report</a>
+        <a href="users.html">Users</a>
+        <a href="profile.html">Profile</a>
+        <a href="#" onclick="logoutAdmin(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+
+        <div>
+            <h1>Manage <span>Medicines</span></h1>
+            <p>Add, edit, delete and update the stock of every medicine.</p>
+        </div>
+
+        <div class="btn-row">
+            <button class="btn btn-ghost" onclick="loadMedicines()">&#8635; Refresh</button>
+            <button class="btn btn-primary" onclick="openAddForm()">&#10133; Add Medicine</button>
+        </div>
+
+    </div>
+
+
+    <div id="alertBox" class="alert"></div>
+
+
+    <div class="toolbar">
+
+        <input type="text" id="searchBox"
+               placeholder="Search by medicine name or company...">
+
+        <select id="filterBox">
+            <option value="all">All medicines</option>
+            <option value="in">In stock</option>
+            <option value="low">Low stock</option>
+            <option value="out">Out of stock</option>
+            <option value="expired">Expired</option>
+            <option value="expiring">Expiring soon</option>
+        </select>
+
+        <div class="spacer"></div>
+
+        <div style="color:#8fa0b6;font-size:13px;">
+            <strong id="shownCount" style="color:#f5f9ff;">0</strong> shown
+        </div>
+
+    </div>
+
+
+    <div class="card">
+        <div id="tableArea">
+            <div class="empty">
+                <div class="empty-icon">&#8987;</div>
+                <p>Loading medicines from the database...</p>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+
+<!-- ============================================================
+     ADD / EDIT MEDICINE POPUP
+     The same form is used for both. When medicineId is empty it
+     ADDS a new medicine, otherwise it EDITS the existing one.
+     ============================================================ -->
+
+<div class="modal-backdrop" id="medicineModal">
+
+    <div class="modal">
+
+        <div class="modal-head">
+            <h2 id="modalTitle">Add Medicine</h2>
+            <button class="modal-close" onclick="closeForm()">&times;</button>
+        </div>
+
+        <div id="modalAlert" class="alert"></div>
+
+        <form id="medicineForm">
+
+            <input type="hidden" id="medicineId">
+
+            <div class="field">
+                <label>Medicine Name *</label>
+                <input type="text" id="mName" placeholder="e.g. Paracetamol 650mg" required>
+            </div>
+
+            <div class="field">
+                <label>Company</label>
+                <input type="text" id="mCompany" placeholder="e.g. Micro Labs">
+            </div>
+
+            <div class="form-grid">
+
+                <div class="field">
+                    <label>Purchase Price (Rs.) *</label>
+                    <input type="number" id="mPurchasePrice" min="0" step="0.01"
+                           placeholder="0.00" required>
+                    <small class="hint">What YOU paid the supplier, per unit.</small>
+                </div>
+
+                <div class="field">
+                    <label>Selling Price / MRP (Rs.) *</label>
+                    <input type="number" id="mPrice" min="0" step="0.01"
+                           placeholder="0.00" required>
+                    <small class="hint">What the CUSTOMER is charged, per unit.</small>
+                </div>
+
+            </div>
+
+            <div class="form-grid">
+
+                <div class="field">
+                    <label>Discount (%)</label>
+                    <input type="number" id="mDiscount" min="0" max="100" step="0.01"
+                           value="0" placeholder="0">
+                    <small class="hint">0 means no discount on this medicine.</small>
+                </div>
+
+                <div class="field">
+                    <label>Quantity In Stock *</label>
+                    <input type="number" id="mQuantity" min="0" placeholder="0" required>
+                </div>
+
+            </div>
+
+            <!-- Live preview: updates as the admin types, so the profit
+                 (or the loss) is visible BEFORE saving. -->
+            <div id="pricePreview" class="price-preview">
+                Fill the purchase price and the selling price to see the profit.
+            </div>
+
+            <div class="field">
+                <label>Expiry Date</label>
+                <input type="date" id="mExpiry">
+            </div>
+
+            <div class="btn-row" style="justify-content:flex-end;margin-top:6px;">
+                <button type="button" class="btn btn-ghost" onclick="closeForm()">
+                    Cancel
+                </button>
+                <button type="submit" id="saveBtn" class="btn btn-primary">
+                    Save Medicine
+                </button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<!-- ============================================================
+     STOCK UPDATE POPUP
+     ============================================================ -->
+
+<div class="modal-backdrop" id="stockModal">
+
+    <div class="modal">
+
+        <div class="modal-head">
+            <h2>Update Stock</h2>
+            <button class="modal-close" onclick="closeStockForm()">&times;</button>
+        </div>
+
+        <div id="stockAlert" class="alert"></div>
+
+        <p class="card-sub" id="stockInfo"></p>
+
+        <form id="stockForm">
+
+            <input type="hidden" id="stockMedicineId">
+
+            <div class="field">
+                <label>What do you want to do?</label>
+                <select id="stockAction">
+                    <option value="ADD">Add stock (new supply arrived)</option>
+                    <option value="REMOVE">Remove stock (damaged / expired)</option>
+                    <option value="SET">Set exact stock (after counting)</option>
+                </select>
+            </div>
+
+            <div class="field">
+                <label>Quantity</label>
+                <input type="number" id="stockAmount" min="0" value="1" required>
+                <small class="hint" id="stockHint">
+                    This many units will be added to the current stock.
+                </small>
+            </div>
+
+            <div class="btn-row" style="justify-content:flex-end;margin-top:6px;">
+                <button type="button" class="btn btn-ghost" onclick="closeStockForm()">
+                    Cancel
+                </button>
+                <button type="submit" class="btn btn-primary">Update Stock</button>
+            </div>
+
+        </form>
+
+    </div>
+
+</div>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>Admin Panel</div>
+</footer>
+
+
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+
+<script>
+
+    const admin = requireAdmin();
+
+    let allMedicines = [];
+
+
+    /* ==================== READ ==================== */
+
+    async function loadMedicines() {
+
+        hideAlert("alertBox");
+
+        try {
+            allMedicines = await apiGet("/api/medicines");
+            applyFilters();
+
+        } catch (error) {
+
+            document.getElementById("tableArea").innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#9888;</div>' +
+                    "<h3>Cannot load medicines</h3>" +
+                    "<p>" + safe(error.message) + "</p>" +
+                "</div>";
+        }
+    }
+
+
+    function applyFilters() {
+
+        const keyword =
+            document.getElementById("searchBox").value.trim().toLowerCase();
+
+        const filter = document.getElementById("filterBox").value;
+
+        const list = allMedicines.filter(function (medicine) {
+
+            const name = (medicine.name || "").toLowerCase();
+            const company = (medicine.company || "").toLowerCase();
+
+            const matchesSearch =
+                keyword === "" ||
+                name.indexOf(keyword) >= 0 ||
+                company.indexOf(keyword) >= 0;
+
+            let matchesFilter = true;
+
+            if (filter === "in")       matchesFilter = medicine.stockStatus === "IN STOCK";
+            if (filter === "low")      matchesFilter = medicine.stockStatus === "LOW STOCK";
+            if (filter === "out")      matchesFilter = medicine.stockStatus === "OUT OF STOCK";
+            if (filter === "expired")  matchesFilter = medicine.expiryStatus === "EXPIRED";
+            if (filter === "expiring") matchesFilter = medicine.expiryStatus === "EXPIRING SOON";
+
+            return matchesSearch && matchesFilter;
+        });
+
+        render(list);
+    }
+
+
+    function render(list) {
+
+        const area = document.getElementById("tableArea");
+
+        document.getElementById("shownCount").textContent = list.length;
+
+        if (list.length === 0) {
+
+            area.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#128138;</div>' +
+                    "<h3>No medicines found</h3>" +
+                    '<p>Use the "Add Medicine" button to add your first one.</p>' +
+                "</div>";
+
+            return;
+        }
+
+        let rows = "";
+        let totalValue = 0;
+
+        list.forEach(function (medicine) {
+
+            totalValue = totalValue + Number(medicine.stockValue || 0);
+
+            const discountPercent = Number(medicine.discountPercent || 0);
+
+            /* MRP, struck through when a discount is on */
+            const mrpCell = discountPercent > 0
+                ? '<span style="text-decoration:line-through;color:#8fa0b6;">' +
+                      money(medicine.price) + "</span>"
+                : money(medicine.price);
+
+            const discountCell = discountPercent > 0
+                ? '<span class="badge blue">' + trimNumber(discountPercent) + "% OFF</span>"
+                : '<span style="color:#6b7b90;">-</span>';
+
+            /* profit per unit - red when the medicine would sell at a loss */
+            let profitCell;
+
+            if (medicine.purchasePriceMissing) {
+                profitCell = '<span class="badge orange">COST NOT SET</span>';
+
+            } else if (medicine.lossMaking) {
+                profitCell = '<span class="badge red">LOSS ' +
+                             money(Math.abs(medicine.profitPerUnit)) + "</span>";
+
+            } else {
+                profitCell = '<span style="color:#35d07f;">' +
+                             money(medicine.profitPerUnit) + "</span>" +
+                             '<div style="color:#8fa0b6;font-size:11px;">' +
+                             trimNumber(medicine.profitPercent) + "%</div>";
+            }
+
+            rows +=
+                "<tr>" +
+                    '<td class="center">' + medicine.id + "</td>" +
+                    "<td><strong>" + safe(medicine.name) + "</strong></td>" +
+                    "<td>" + safe(medicine.company || "-") + "</td>" +
+                    '<td class="right">' + money(medicine.purchasePrice) + "</td>" +
+                    '<td class="right">' + mrpCell + "</td>" +
+                    '<td class="center">' + discountCell + "</td>" +
+                    '<td class="right"><strong>' + money(medicine.finalPrice) +
+                        "</strong></td>" +
+                    '<td class="right">' + profitCell + "</td>" +
+                    '<td class="center">' + stockBadge(medicine.quantity) + "</td>" +
+                    '<td class="right">' + money(medicine.stockValue) + "</td>" +
+                    "<td>" + formatDate(medicine.expiryDate) + "</td>" +
+                    '<td class="center">' + expiryBadge(medicine.expiryDate) + "</td>" +
+                    '<td class="center">' +
+                        '<div class="btn-row" style="justify-content:center;">' +
+                            '<button class="btn btn-ghost btn-sm" onclick="openStockForm(' +
+                                medicine.id + ')">Stock</button>' +
+                            '<button class="btn btn-warn btn-sm" onclick="openEditForm(' +
+                                medicine.id + ')">Edit</button>' +
+                            '<button class="btn btn-danger btn-sm" onclick="deleteMedicine(' +
+                                medicine.id + ')">Delete</button>' +
+                        "</div>" +
+                    "</td>" +
+                "</tr>";
+        });
+
+        area.innerHTML =
+            '<div class="table-wrap"><table>' +
+                "<thead><tr>" +
+                    '<th class="center">ID</th>' +
+                    "<th>Medicine</th><th>Company</th>" +
+                    '<th class="right">Purchase</th>' +
+                    '<th class="right">MRP</th>' +
+                    '<th class="center">Discount</th>' +
+                    '<th class="right">Customer Pays</th>' +
+                    '<th class="right">Profit / Unit</th>' +
+                    '<th class="center">Stock</th>' +
+                    '<th class="right">Stock Value (cost)</th>' +
+                    "<th>Expiry Date</th>" +
+                    '<th class="center">Expiry</th>' +
+                    '<th class="center">Actions</th>' +
+                "</tr></thead>" +
+
+                "<tbody>" + rows + "</tbody>" +
+
+                "<tfoot><tr>" +
+                    '<td colspan="9" class="right">' +
+                        "Stock value at cost, for the shown medicines</td>" +
+                    '<td class="right">' + money(totalValue) + "</td>" +
+                    '<td colspan="3"></td>' +
+                "</tr></tfoot>" +
+            "</table></div>";
+    }
+
+
+    /* ==================== ADD / EDIT ==================== */
+
+    function openAddForm() {
+
+        document.getElementById("modalTitle").textContent = "Add Medicine";
+        document.getElementById("medicineForm").reset();
+        document.getElementById("medicineId").value = "";
+        document.getElementById("mDiscount").value = 0;
+
+        hideAlert("modalAlert");
+        updatePreview();
+
+        document.getElementById("medicineModal").classList.add("show");
+    }
+
+
+    function openEditForm(id) {
+
+        const medicine = allMedicines.find(function (m) { return m.id === id; });
+
+        if (!medicine) {
+            return;
+        }
+
+        document.getElementById("modalTitle").textContent =
+            "Edit Medicine (ID " + medicine.id + ")";
+
+        document.getElementById("medicineId").value = medicine.id;
+        document.getElementById("mName").value = medicine.name || "";
+        document.getElementById("mCompany").value = medicine.company || "";
+        document.getElementById("mPurchasePrice").value = medicine.purchasePrice;
+        document.getElementById("mPrice").value = medicine.price;
+        document.getElementById("mDiscount").value = medicine.discountPercent || 0;
+        document.getElementById("mQuantity").value = medicine.quantity;
+        document.getElementById("mExpiry").value = medicine.expiryDate || "";
+
+        hideAlert("modalAlert");
+        updatePreview();
+
+        document.getElementById("medicineModal").classList.add("show");
+    }
+
+
+    function closeForm() {
+        document.getElementById("medicineModal").classList.remove("show");
+    }
+
+
+    document.getElementById("medicineForm")
+        .addEventListener("submit", async function (event) {
+
+        event.preventDefault();
+        hideAlert("modalAlert");
+
+        const id = document.getElementById("medicineId").value;
+
+        const medicine = {
+            name: document.getElementById("mName").value.trim(),
+            company: document.getElementById("mCompany").value.trim(),
+            purchasePrice: Number(document.getElementById("mPurchasePrice").value),
+            price: Number(document.getElementById("mPrice").value),
+            discountPercent: Number(document.getElementById("mDiscount").value) || 0,
+            quantity: Number(document.getElementById("mQuantity").value),
+            expiryDate: document.getElementById("mExpiry").value || null
+        };
+
+        /* Stop a loss-making entry right here, before it is even sent.
+           The backend checks the same thing again, so the rule holds
+           even if someone calls the API directly. */
+
+        const problem = priceProblem(
+            medicine.purchasePrice, medicine.price, medicine.discountPercent);
+
+        if (problem) {
+            showAlert("modalAlert", problem, "error");
+            return;
+        }
+
+        const button = document.getElementById("saveBtn");
+
+        button.disabled = true;
+        button.textContent = "Saving...";
+
+        try {
+
+            /* no id  -> ADD (POST)      id present -> EDIT (PUT) */
+            const result = id
+                ? await apiPut("/api/medicines/" + id, medicine)
+                : await apiPost("/api/medicines", medicine);
+
+            if (result.success) {
+
+                closeForm();
+                toast(result.message, "success");
+
+                await loadMedicines();
+
+            } else {
+                showAlert("modalAlert", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("modalAlert", error.message, "error");
+
+        } finally {
+            button.disabled = false;
+            button.textContent = "Save Medicine";
+        }
+
+    });
+
+
+    /* ==================== PRICE RULES ==================== */
+
+    /**
+     * The one place that decides whether a set of prices is allowed.
+     * Returns null when everything is fine, otherwise the message to show.
+     *
+     * Rule: what the customer finally pays must never be less than
+     * what the store paid, otherwise every sale is a loss.
+     */
+    function priceProblem(purchasePrice, price, discountPercent) {
+
+        if (!(purchasePrice >= 0)) {
+            return "Purchase price must be 0 or more";
+        }
+
+        if (!(price >= 0)) {
+            return "Selling price must be 0 or more";
+        }
+
+        if (discountPercent < 0 || discountPercent > 100) {
+            return "Discount must be between 0 and 100 percent";
+        }
+
+        if (purchasePrice > 0 && price < purchasePrice) {
+
+            return "Selling price (" + money(price) + ") cannot be less than the " +
+                   "purchase price (" + money(purchasePrice) + "). The store would " +
+                   "lose " + money(purchasePrice - price) + " on every unit.";
+        }
+
+        const finalPrice = round2(price - (price * discountPercent / 100));
+
+        if (purchasePrice > 0 && finalPrice < purchasePrice) {
+
+            const maxDiscount = round2((price - purchasePrice) / price * 100);
+
+            return "A " + trimNumber(discountPercent) + "% discount brings the price " +
+                   "down to " + money(finalPrice) + ", which is below the purchase " +
+                   "price of " + money(purchasePrice) + ". The highest discount you " +
+                   "can give on this medicine is " + trimNumber(maxDiscount) + "%.";
+        }
+
+        return null;
+    }
+
+
+    /** Redraws the green / red box under the price fields as the admin types. */
+    function updatePreview() {
+
+        const box = document.getElementById("pricePreview");
+
+        const purchasePrice = Number(document.getElementById("mPurchasePrice").value);
+        const price = Number(document.getElementById("mPrice").value);
+        const discountPercent = Number(document.getElementById("mDiscount").value) || 0;
+
+        const saveBtn = document.getElementById("saveBtn");
+
+        if (!price) {
+            box.className = "price-preview";
+            box.textContent =
+                "Fill the purchase price and the selling price to see the profit.";
+            saveBtn.disabled = false;
+            return;
+        }
+
+        const finalPrice = round2(price - (price * discountPercent / 100));
+        const profit = round2(finalPrice - purchasePrice);
+
+        const problem = priceProblem(purchasePrice, price, discountPercent);
+
+        if (problem) {
+
+            box.className = "price-preview bad";
+            box.innerHTML =
+                "<strong>&#9888; Cannot save</strong><br>" + safe(problem);
+
+            saveBtn.disabled = true;       // the button itself is locked
+            return;
+        }
+
+        saveBtn.disabled = false;
+
+        if (!purchasePrice) {
+
+            box.className = "price-preview warn";
+            box.innerHTML =
+                "<strong>Customer pays " + money(finalPrice) + "</strong>" +
+                (discountPercent > 0
+                    ? " &nbsp;(" + money(price) + " &minus; " +
+                      trimNumber(discountPercent) + "%)"
+                    : "") +
+                "<br>Purchase price is 0, so the profit cannot be calculated.";
+            return;
+        }
+
+        const profitPercent = round2(profit / purchasePrice * 100);
+
+        box.className = "price-preview good";
+        box.innerHTML =
+            "<strong>Customer pays " + money(finalPrice) + "</strong>" +
+            (discountPercent > 0
+                ? " &nbsp;(" + money(price) + " &minus; " +
+                  trimNumber(discountPercent) + "% off)"
+                : "") +
+            "<br>Profit " + money(profit) + " per unit &nbsp;&bull;&nbsp; " +
+            trimNumber(profitPercent) + "% on cost";
+    }
+
+
+    /* recalculate the preview whenever any price field changes */
+    ["mPurchasePrice", "mPrice", "mDiscount"].forEach(function (id) {
+        document.getElementById(id).addEventListener("input", updatePreview);
+    });
+
+
+    /* ==================== DELETE ==================== */
+
+    async function deleteMedicine(id) {
+
+        const medicine = allMedicines.find(function (m) { return m.id === id; });
+
+        if (!medicine) {
+            return;
+        }
+
+        const sure = confirm(
+            "Delete \"" + medicine.name + "\" permanently?\n\n" +
+            "This cannot be undone."
+        );
+
+        if (!sure) {
+            return;
+        }
+
+        try {
+
+            const result = await apiDelete("/api/medicines/" + id);
+
+            if (result.success) {
+                toast(result.message, "success");
+                await loadMedicines();
+
+            } else {
+                showAlert("alertBox", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+        }
+    }
+
+
+    /* ==================== STOCK UPDATE ==================== */
+
+    function openStockForm(id) {
+
+        const medicine = allMedicines.find(function (m) { return m.id === id; });
+
+        if (!medicine) {
+            return;
+        }
+
+        document.getElementById("stockMedicineId").value = medicine.id;
+
+        document.getElementById("stockInfo").innerHTML =
+            "<strong>" + safe(medicine.name) + "</strong> &mdash; current stock: " +
+            "<strong>" + medicine.quantity + "</strong> units";
+
+        document.getElementById("stockAction").value = "ADD";
+        document.getElementById("stockAmount").value = 1;
+
+        updateStockHint();
+        hideAlert("stockAlert");
+
+        document.getElementById("stockModal").classList.add("show");
+    }
+
+
+    function closeStockForm() {
+        document.getElementById("stockModal").classList.remove("show");
+    }
+
+
+    function updateStockHint() {
+
+        const action = document.getElementById("stockAction").value;
+        const hint = document.getElementById("stockHint");
+
+        if (action === "ADD") {
+            hint.textContent = "This many units will be ADDED to the current stock.";
+
+        } else if (action === "REMOVE") {
+            hint.textContent = "This many units will be REMOVED from the current stock.";
+
+        } else {
+            hint.textContent = "The stock will be SET to exactly this number.";
+        }
+    }
+
+
+    document.getElementById("stockAction")
+        .addEventListener("change", updateStockHint);
+
+
+    document.getElementById("stockForm")
+        .addEventListener("submit", async function (event) {
+
+        event.preventDefault();
+        hideAlert("stockAlert");
+
+        const id = document.getElementById("stockMedicineId").value;
+        const action = document.getElementById("stockAction").value;
+        const amount = Number(document.getElementById("stockAmount").value);
+
+        try {
+
+            const result = await apiPut(
+                "/api/medicines/" + id + "/stock?action=" + action +
+                "&amount=" + amount);
+
+            if (result.success) {
+
+                closeStockForm();
+                toast(result.message, "success");
+
+                await loadMedicines();
+
+            } else {
+                showAlert("stockAlert", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("stockAlert", error.message, "error");
+        }
+
+    });
+
+
+    /* ==================== EVENTS ==================== */
+
+    document.getElementById("searchBox").addEventListener("input", applyFilters);
+    document.getElementById("filterBox").addEventListener("change", applyFilters);
+
+    /* clicking the dark area behind a popup closes it */
+    document.getElementById("medicineModal")
+        .addEventListener("click", function (event) {
+            if (event.target === this) closeForm();
+        });
+
+    document.getElementById("stockModal")
+        .addEventListener("click", function (event) {
+            if (event.target === this) closeStockForm();
+        });
+
+
+    loadMedicines();
+
+</script>
+
+</body>
+</html>

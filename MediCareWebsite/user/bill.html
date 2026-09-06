@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Bill | MediCare</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav class="no-print">
+
+    <a href="home.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag">User Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="home.html">Home</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="my-orders.html">My Orders</a>
+        <a href="profile.html">Profile</a>
+        <a href="cart.html" class="cart-link" id="cartLink">Cart (0)</a>
+        <a href="#" onclick="logoutUser(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div id="successNote" class="alert success no-print"></div>
+
+    <div class="btn-row no-print" style="margin-bottom:18px;">
+        <a href="my-orders.html" class="btn btn-ghost">&larr; My Orders</a>
+        <div style="flex:1;"></div>
+        <button class="btn btn-primary" onclick="window.print()">
+            &#128424; Print / Save as PDF
+        </button>
+    </div>
+
+    <div id="billArea">
+        <div class="card">
+            <div class="empty">
+                <div class="empty-icon">&#8987;</div>
+                <p>Loading bill...</p>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/cart.js"></script>
+
+<script>
+
+    const user = requireUser();
+
+    refreshCartBadge();
+
+    /* the bill number comes from the address bar:
+       bill.html?bill=BILL-20260906-161031 */
+    const params = new URLSearchParams(window.location.search);
+    const billNumber = params.get("bill");
+    const isNew = params.get("new") === "1";
+
+
+    if (isNew) {
+        const note = document.getElementById("successNote");
+        note.className = "alert success show no-print";
+        note.textContent =
+            "Order placed successfully! Your bill is ready below.";
+    }
+
+
+    async function loadBill() {
+
+        const area = document.getElementById("billArea");
+
+        if (!billNumber) {
+            area.innerHTML =
+                '<div class="card"><div class="empty">' +
+                    '<div class="empty-icon">&#129534;</div>' +
+                    "<h3>No bill selected</h3>" +
+                    "<p>Open a bill from the My Orders page.</p>" +
+                "</div></div>";
+            return;
+        }
+
+        try {
+
+            const result = await apiGet(
+                "/api/orders/bills/" + encodeURIComponent(billNumber));
+
+            if (!result.success) {
+                throw new Error(result.message);
+            }
+
+            render(result.data);
+
+        } catch (error) {
+
+            area.innerHTML =
+                '<div class="card"><div class="empty">' +
+                    '<div class="empty-icon">&#9888;</div>' +
+                    "<h3>Cannot load this bill</h3>" +
+                    "<p>" + safe(error.message) + "</p>" +
+                "</div></div>";
+        }
+    }
+
+
+    function render(bill) {
+
+        let rows = "";
+        let serial = 1;
+
+        bill.items.forEach(function (item) {
+
+            const discountPercent = Number(item.discountPercent || 0);
+
+            rows +=
+                "<tr>" +
+                    '<td class="center">' + (serial++) + "</td>" +
+                    "<td>" + safe(item.medicineName) + "</td>" +
+                    '<td class="right">' + money(item.price) + "</td>" +
+                    '<td class="center">' + item.quantity + "</td>" +
+                    '<td class="right">' + money(item.subtotal) + "</td>" +
+                    '<td class="right">' +
+                        (discountPercent > 0
+                            ? "- " + money(item.discount) +
+                              '<div style="color:#64748b;font-size:11px;">' +
+                              trimNumber(discountPercent) + "%</div>"
+                            : "-") +
+                    "</td>" +
+                    '<td class="right">' + money(item.gst) + "</td>" +
+                    '<td class="right">' + money(item.total) + "</td>" +
+                "</tr>";
+        });
+
+        document.getElementById("billArea").innerHTML =
+
+            '<div class="bill-sheet">' +
+
+                '<div class="bill-top">' +
+                    "<div>" +
+                        "<h1>Medi<span>Care</span></h1>" +
+                        "<small>Medical Store Management System</small>" +
+                        "<small>GST Invoice</small>" +
+                    "</div>" +
+                    '<div class="bill-meta">' +
+                        "<div><b>" + safe(bill.billNumber) + "</b></div>" +
+                        "<div>" + formatDateTime(bill.orderDate) + "</div>" +
+                    "</div>" +
+                "</div>" +
+
+                '<div class="bill-info">' +
+                    "<div><b>Customer</b>" + safe(bill.customerName) + "</div>" +
+                    "<div><b>Mobile</b>" + safe(bill.mobile) + "</div>" +
+                    "<div><b>Account</b>" + safe(bill.userEmail || "Counter sale") + "</div>" +
+                    "<div><b>Items</b>" + bill.itemCount +
+                        " (" + bill.totalQuantity + " units)</div>" +
+                "</div>" +
+
+                "<table>" +
+                    "<thead><tr>" +
+                        '<th class="center">#</th>' +
+                        "<th>Medicine</th>" +
+                        '<th class="right">MRP</th>' +
+                        '<th class="center">Qty</th>' +
+                        '<th class="right">Amount</th>' +
+                        '<th class="right">Discount</th>' +
+                        '<th class="right">GST</th>' +
+                        '<th class="right">Total</th>' +
+                    "</tr></thead>" +
+
+                    "<tbody>" + rows + "</tbody>" +
+
+                    "<tfoot>" +
+                        '<tr><td colspan="7" class="right">Subtotal (MRP)</td>' +
+                            '<td class="right">' + money(bill.subtotal) + "</td></tr>" +
+
+                        (bill.discount > 0
+                            ? '<tr><td colspan="7" class="right">' +
+                              "Total Discount</td>" +
+                              '<td class="right">- ' + money(bill.discount) +
+                              "</td></tr>" +
+                              '<tr><td colspan="7" class="right">' +
+                              "Taxable Amount</td>" +
+                              '<td class="right">' + money(bill.taxable) + "</td></tr>"
+                            : "") +
+
+                        '<tr><td colspan="7" class="right">GST (5%)</td>' +
+                            '<td class="right">' + money(bill.gst) + "</td></tr>" +
+                        '<tr class="grand"><td colspan="7" class="right">' +
+                            "GRAND TOTAL</td>" +
+                            '<td class="right">' + money(bill.total) + "</td></tr>" +
+                    "</tfoot>" +
+                "</table>" +
+
+                (bill.discount > 0
+                    ? '<div style="margin-top:14px;padding:10px 14px;' +
+                      "border-radius:10px;background:#e8f7f0;color:#0f7a55;" +
+                      'font-size:13px;font-weight:700;text-align:center;">' +
+                      "You saved " + money(bill.discount) + " on this bill" +
+                      "</div>"
+                    : "") +
+
+                '<div class="bill-note">' +
+                    "Thank you for shopping with MediCare. " +
+                    "Medicines once sold are not returnable. " +
+                    "Please read the label carefully before use." +
+                "</div>" +
+
+            "</div>";
+    }
+
+
+    loadBill();
+
+</script>
+
+</body>
+</html>

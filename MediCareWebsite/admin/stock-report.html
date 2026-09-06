@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Stock Report | MediCare Admin Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav class="no-print">
+
+    <a href="dashboard.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag admin">Admin Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="stock-report.html" class="active">Stock Report</a>
+        <a href="sales-report.html">Sales Report</a>
+        <a href="users.html">Users</a>
+        <a href="profile.html">Profile</a>
+        <a href="#" onclick="logoutAdmin(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+
+        <div>
+            <h1>Stock <span>Report</span></h1>
+            <p>Full inventory with stock value, low stock and expiry status.</p>
+        </div>
+
+        <div class="btn-row no-print">
+            <button class="btn btn-ghost" onclick="loadReport()">&#8635; Refresh</button>
+            <button class="btn btn-primary" onclick="window.print()">&#128424; Print</button>
+        </div>
+
+    </div>
+
+
+    <div id="alertBox" class="alert"></div>
+
+
+    <div class="stats">
+
+        <div class="stat">
+            <div class="stat-icon">&#128138;</div>
+            <h3 id="totalMedicines">0</h3>
+            <p>Total Medicines</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#128230;</div>
+            <h3 id="totalStock">0</h3>
+            <p>Total Units</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#128181;</div>
+            <h3 id="stockValue">Rs. 0.00</h3>
+            <p>Stock Value At Cost</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#127991;</div>
+            <h3 id="stockSellValue">Rs. 0.00</h3>
+            <p>Stock Value At Selling Price</p>
+        </div>
+
+        <div class="stat good">
+            <div class="stat-icon">&#128200;</div>
+            <h3 id="expectedProfit">Rs. 0.00</h3>
+            <p>Profit If All Stock Sells</p>
+        </div>
+
+        <div class="stat warn">
+            <div class="stat-icon">&#9888;</div>
+            <h3 id="lowStock">0</h3>
+            <p>Low Stock</p>
+        </div>
+
+        <div class="stat bad">
+            <div class="stat-icon">&#10060;</div>
+            <h3 id="outOfStock">0</h3>
+            <p>Out Of Stock</p>
+        </div>
+
+        <div class="stat bad">
+            <div class="stat-icon">&#128465;</div>
+            <h3 id="expired">0</h3>
+            <p>Expired</p>
+        </div>
+
+    </div>
+
+
+    <div class="toolbar no-print">
+
+        <input type="text" id="searchBox" placeholder="Search medicine or company...">
+
+        <select id="filterBox">
+            <option value="all">All medicines</option>
+            <option value="low">Low stock only</option>
+            <option value="out">Out of stock only</option>
+            <option value="expired">Expired only</option>
+            <option value="expiring">Expiring soon only</option>
+            <option value="discount">On discount only</option>
+            <option value="nocost">Purchase price not set</option>
+        </select>
+
+        <div class="spacer"></div>
+
+        <div style="color:#8fa0b6;font-size:13px;">
+            <strong id="shownCount" style="color:#f5f9ff;">0</strong> rows
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <h2>Medicine Stock Details</h2>
+        <p class="card-sub" id="reportDate"></p>
+
+        <div id="tableArea">
+            <div class="empty">
+                <div class="empty-icon">&#8987;</div>
+                <p>Loading the stock report...</p>
+            </div>
+        </div>
+
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>Admin Panel &mdash; Stock Report</div>
+</footer>
+
+
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+
+<script>
+
+    const admin = requireAdmin();
+
+    let medicines = [];
+
+
+    async function loadReport() {
+
+        hideAlert("alertBox");
+
+        try {
+
+            const report = await apiGet("/api/reports/stock");
+
+            const summary = report.summary;
+
+            document.getElementById("totalMedicines").textContent = summary.totalMedicines;
+            document.getElementById("totalStock").textContent = summary.totalStock;
+            document.getElementById("stockValue").textContent = money(summary.stockValue);
+            document.getElementById("stockSellValue").textContent =
+                money(summary.stockSellValue);
+            document.getElementById("expectedProfit").textContent =
+                money(summary.expectedProfit);
+            document.getElementById("lowStock").textContent = summary.lowStock;
+            document.getElementById("outOfStock").textContent = summary.outOfStock;
+            document.getElementById("expired").textContent = summary.expired;
+
+            document.getElementById("reportDate").textContent =
+                "Generated on " + formatDateTime(new Date()) +
+                "  |  Expiring soon (30 days): " + summary.expiringSoon +
+                "  |  On discount: " + summary.discounted +
+                "  |  Purchase price not set: " + summary.missingCost;
+
+            medicines = report.medicines;
+
+            applyFilters();
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+        }
+    }
+
+
+    function applyFilters() {
+
+        const keyword =
+            document.getElementById("searchBox").value.trim().toLowerCase();
+
+        const filter = document.getElementById("filterBox").value;
+
+        const list = medicines.filter(function (medicine) {
+
+            const name = (medicine.name || "").toLowerCase();
+            const company = (medicine.company || "").toLowerCase();
+
+            const matchesSearch =
+                keyword === "" ||
+                name.indexOf(keyword) >= 0 ||
+                company.indexOf(keyword) >= 0;
+
+            let matchesFilter = true;
+
+            if (filter === "low")      matchesFilter = medicine.stockStatus === "LOW STOCK";
+            if (filter === "out")      matchesFilter = medicine.stockStatus === "OUT OF STOCK";
+            if (filter === "expired")  matchesFilter = medicine.expiryStatus === "EXPIRED";
+            if (filter === "expiring") matchesFilter = medicine.expiryStatus === "EXPIRING SOON";
+            if (filter === "discount") matchesFilter = Number(medicine.discountPercent || 0) > 0;
+            if (filter === "nocost")   matchesFilter = medicine.purchasePriceMissing;
+
+            return matchesSearch && matchesFilter;
+        });
+
+        render(list);
+    }
+
+
+    function render(list) {
+
+        const area = document.getElementById("tableArea");
+
+        document.getElementById("shownCount").textContent = list.length;
+
+        if (list.length === 0) {
+
+            area.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#128202;</div>' +
+                    "<h3>Nothing to show</h3>" +
+                    "<p>No medicine matches this filter.</p>" +
+                "</div>";
+
+            return;
+        }
+
+        let rows = "";
+        let units = 0;
+        let costValue = 0;
+        let sellValue = 0;
+
+        list.forEach(function (medicine) {
+
+            units = units + Number(medicine.quantity || 0);
+            costValue = costValue + Number(medicine.stockValue || 0);
+            sellValue = sellValue + Number(medicine.stockSellValue || 0);
+
+            let profitCell;
+
+            if (medicine.purchasePriceMissing) {
+                profitCell = '<span class="badge orange">COST NOT SET</span>';
+
+            } else if (medicine.lossMaking) {
+                profitCell = '<span class="badge red">LOSS</span>';
+
+            } else {
+                profitCell = '<span style="color:#35d07f;">' +
+                             money(medicine.profitPerUnit) + "</span>";
+            }
+
+            rows +=
+                "<tr>" +
+                    '<td class="center">' + medicine.id + "</td>" +
+                    "<td><strong>" + safe(medicine.name) + "</strong></td>" +
+                    "<td>" + safe(medicine.company || "-") + "</td>" +
+                    '<td class="right">' + money(medicine.purchasePrice) + "</td>" +
+                    '<td class="right">' + money(medicine.price) + "</td>" +
+                    '<td class="center">' +
+                        discountBadge(medicine.discountPercent) + "</td>" +
+                    '<td class="right">' + money(medicine.finalPrice) + "</td>" +
+                    '<td class="right">' + profitCell + "</td>" +
+                    '<td class="center">' + (medicine.quantity || 0) + "</td>" +
+                    '<td class="center">' + stockBadge(medicine.quantity) + "</td>" +
+                    '<td class="right">' + money(medicine.stockValue) + "</td>" +
+                    "<td>" + formatDate(medicine.expiryDate) + "</td>" +
+                    '<td class="center">' + expiryBadge(medicine.expiryDate) + "</td>" +
+                "</tr>";
+        });
+
+        area.innerHTML =
+            '<div class="table-wrap"><table>' +
+                "<thead><tr>" +
+                    '<th class="center">ID</th>' +
+                    "<th>Medicine</th><th>Company</th>" +
+                    '<th class="right">Purchase</th>' +
+                    '<th class="right">MRP</th>' +
+                    '<th class="center">Discount</th>' +
+                    '<th class="right">Sells At</th>' +
+                    '<th class="right">Profit / Unit</th>' +
+                    '<th class="center">Qty</th>' +
+                    '<th class="center">Stock Status</th>' +
+                    '<th class="right">Stock Value (cost)</th>' +
+                    "<th>Expiry Date</th>" +
+                    '<th class="center">Expiry Status</th>' +
+                "</tr></thead>" +
+
+                "<tbody>" + rows + "</tbody>" +
+
+                "<tfoot><tr>" +
+                    '<td colspan="8" class="right">Total of ' + list.length + " rows</td>" +
+                    '<td class="center">' + units + "</td>" +
+                    "<td></td>" +
+                    '<td class="right">' + money(costValue) + "</td>" +
+                    '<td colspan="2" style="color:#8fa0b6;">at selling price ' +
+                        money(sellValue) + "</td>" +
+                "</tr></tfoot>" +
+            "</table></div>";
+    }
+
+
+    document.getElementById("searchBox").addEventListener("input", applyFilters);
+    document.getElementById("filterBox").addEventListener("change", applyFilters);
+
+
+    loadReport();
+
+</script>
+
+</body>
+</html>

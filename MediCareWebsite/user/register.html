@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Register | MediCare User Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<div class="auth-page">
+
+    <div class="auth-box">
+
+        <div class="auth-logo">
+            <div class="logo-icon" style="width:38px;height:38px;font-size:20px;">&#10010;</div>
+            <span class="logo-text">Medi<span>Care</span></span>
+        </div>
+
+        <div class="auth-tag">User Panel</div>
+
+        <h1>Create your account</h1>
+
+        <p class="auth-sub">
+            Fill the form below. There is no email verification &mdash;
+            you can login straight away.
+        </p>
+
+
+        <div id="alertBox" class="alert"></div>
+
+
+        <form id="registerForm">
+
+            <div class="field">
+                <label>Full Name</label>
+                <input type="text" id="name" placeholder="e.g. Ravi Sharma" required>
+            </div>
+
+            <div class="field">
+                <label>Email (this will be your User ID)</label>
+                <input type="email" id="email" placeholder="e.g. ravi@gmail.com" required>
+                <small class="hint">You will login with this email.</small>
+            </div>
+
+            <div class="field">
+                <label>Mobile Number</label>
+                <input type="tel" id="mobile" placeholder="10 digit number"
+                       maxlength="10" pattern="[0-9]{10}" required>
+            </div>
+
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="password"
+                       placeholder="At least 4 characters" required>
+            </div>
+
+            <div class="field">
+                <label>Confirm Password</label>
+                <input type="password" id="confirmPassword"
+                       placeholder="Type the password again" required>
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn btn-primary btn-block">
+                Create Account
+            </button>
+
+        </form>
+
+
+        <div class="auth-foot">
+            Already registered?
+            <a href="login.html">Login here</a>
+        </div>
+
+        <div class="auth-foot">
+            <a href="../index.html">&larr; Back to home</a>
+        </div>
+
+    </div>
+
+</div>
+
+
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/common.js"></script>
+
+<script>
+
+    const form = document.getElementById("registerForm");
+    const submitBtn = document.getElementById("submitBtn");
+
+
+    form.addEventListener("submit", async function (event) {
+
+        event.preventDefault();
+        hideAlert("alertBox");
+
+        /* ---- read the form ---- */
+
+        const name = document.getElementById("name").value.trim();
+        const email = document.getElementById("email").value.trim();
+        const mobile = document.getElementById("mobile").value.trim();
+        const password = document.getElementById("password").value;
+        const confirmPassword = document.getElementById("confirmPassword").value;
+
+
+        /* ---- check it in the browser first (fast feedback) ---- */
+
+        if (!/^[0-9]{10}$/.test(mobile)) {
+            showAlert("alertBox", "Mobile number must be exactly 10 digits", "error");
+            return;
+        }
+
+        if (password.length < 4) {
+            showAlert("alertBox", "Password must be at least 4 characters", "error");
+            return;
+        }
+
+        if (password !== confirmPassword) {
+            showAlert("alertBox", "Password and confirm password do not match", "error");
+            return;
+        }
+
+
+        /* ---- send it to the backend, which saves it in MySQL ---- */
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Creating account...";
+
+        try {
+
+            const result = await apiPost("/api/auth/user/register", {
+                name: name,
+                email: email,
+                mobile: mobile,
+                password: password,
+                confirmPassword: confirmPassword
+            });
+
+            if (result.success) {
+
+                showAlert("alertBox",
+                    result.message + " Taking you to the login page...", "success");
+
+                form.reset();
+
+                setTimeout(function () {
+                    window.location.href = "login.html";
+                }, 1500);
+
+            } else {
+                showAlert("alertBox", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Create Account";
+        }
+
+    });
+
+</script>
+
+</body>
+</html>

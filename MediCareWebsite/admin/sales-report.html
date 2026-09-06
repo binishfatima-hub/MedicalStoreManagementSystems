@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Sales Report | MediCare Admin Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav class="no-print">
+
+    <a href="dashboard.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag admin">Admin Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="stock-report.html">Stock Report</a>
+        <a href="sales-report.html" class="active">Sales Report</a>
+        <a href="users.html">Users</a>
+        <a href="profile.html">Profile</a>
+        <a href="#" onclick="logoutAdmin(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+
+        <div>
+            <h1>Sales <span>Report</span></h1>
+            <p>Every bill, the best selling medicines and day-wise sales.</p>
+        </div>
+
+        <div class="btn-row no-print">
+            <button class="btn btn-primary" onclick="window.print()">&#128424; Print</button>
+        </div>
+
+    </div>
+
+
+    <div id="alertBox" class="alert"></div>
+
+
+    <!-- DATE FILTER -->
+    <div class="card no-print">
+
+        <h2>Choose a Period</h2>
+        <p class="card-sub">Leave the dates empty to see all sales.</p>
+
+        <div class="toolbar" style="margin-bottom:0;">
+
+            <div class="field" style="margin:0;">
+                <label>From</label>
+                <input type="date" id="fromDate">
+            </div>
+
+            <div class="field" style="margin:0;">
+                <label>To</label>
+                <input type="date" id="toDate">
+            </div>
+
+            <div style="align-self:flex-end;">
+                <div class="btn-row">
+                    <button class="btn btn-primary" onclick="loadReport()">Apply</button>
+                    <button class="btn btn-ghost" onclick="quick(0)">Today</button>
+                    <button class="btn btn-ghost" onclick="quick(7)">Last 7 days</button>
+                    <button class="btn btn-ghost" onclick="quick(30)">Last 30 days</button>
+                    <button class="btn btn-ghost" onclick="clearDates()">All time</button>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <!-- SUMMARY -->
+    <div class="stats">
+
+        <div class="stat good">
+            <div class="stat-icon">&#8377;</div>
+            <h3 id="totalSales">Rs. 0.00</h3>
+            <p>Total Sales</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#129534;</div>
+            <h3 id="billCount">0</h3>
+            <p>Number Of Bills</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#128138;</div>
+            <h3 id="itemsSold">0</h3>
+            <p>Units Sold</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#128202;</div>
+            <h3 id="averageBill">Rs. 0.00</h3>
+            <p>Average Bill Value</p>
+        </div>
+
+        <div class="stat good">
+            <div class="stat-icon">&#128200;</div>
+            <h3 id="profit">Rs. 0.00</h3>
+            <p>Profit Earned</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#127991;</div>
+            <h3 id="discount">Rs. 0.00</h3>
+            <p>Discount Given</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#128230;</div>
+            <h3 id="cost">Rs. 0.00</h3>
+            <p>Cost Of Goods Sold</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#127974;</div>
+            <h3 id="gst">Rs. 0.00</h3>
+            <p>GST Collected</p>
+        </div>
+
+    </div>
+
+
+    <!-- TOP MEDICINES -->
+    <div class="card">
+
+        <h2>Top Selling Medicines</h2>
+        <p class="card-sub" id="periodNote">All time</p>
+
+        <div id="topArea"></div>
+
+    </div>
+
+
+    <!-- DAY WISE -->
+    <div class="card">
+
+        <h2>Day-wise Sales</h2>
+        <p class="card-sub">How much was sold on each day of the period.</p>
+
+        <div id="dayArea"></div>
+
+    </div>
+
+
+    <!-- ALL BILLS -->
+    <div class="card">
+
+        <h2>All Bills</h2>
+        <p class="card-sub">
+            Click a bill number to expand it and see the medicines inside.
+        </p>
+
+        <div class="toolbar no-print">
+            <input type="text" id="searchBox"
+                   placeholder="Search by bill number, customer, mobile or email...">
+        </div>
+
+        <div id="billArea">
+            <div class="empty">
+                <div class="empty-icon">&#8987;</div>
+                <p>Loading the sales report...</p>
+            </div>
+        </div>
+
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>Admin Panel &mdash; Sales Report</div>
+</footer>
+
+
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+
+<script>
+
+    const admin = requireAdmin();
+
+    let bills = [];
+
+
+    /** Fills the two date boxes with "the last N days" and reloads. */
+    function quick(days) {
+
+        const to = new Date();
+        const from = new Date();
+
+        from.setDate(to.getDate() - days);
+
+        document.getElementById("fromDate").value = toInputDate(from);
+        document.getElementById("toDate").value = toInputDate(to);
+
+        loadReport();
+    }
+
+
+    function clearDates() {
+
+        document.getElementById("fromDate").value = "";
+        document.getElementById("toDate").value = "";
+
+        loadReport();
+    }
+
+
+    function toInputDate(date) {
+
+        const month = String(date.getMonth() + 1).padStart(2, "0");
+        const day = String(date.getDate()).padStart(2, "0");
+
+        return date.getFullYear() + "-" + month + "-" + day;
+    }
+
+
+
+    /**
+     * Profit is only shown when the purchase price was actually recorded.
+     * Old bills (saved before the purchase price existed) would otherwise
+     * show the whole selling price as profit, which is simply wrong.
+     */
+    function profitCell(amount, costKnown) {
+
+        if (!costKnown) {
+            return '<span class="badge orange" title="Purchase price was not ' +
+                   'recorded for this sale">COST NOT SET</span>';
+        }
+
+        return '<span style="color:#35d07f;">' + money(amount) + "</span>";
+    }
+
+    async function loadReport() {
+
+        hideAlert("alertBox");
+
+        const from = document.getElementById("fromDate").value;
+        const to = document.getElementById("toDate").value;
+
+        let path = "/api/reports/sales";
+
+        if (from && to) {
+            path = path + "?from=" + from + "&to=" + to;
+
+            document.getElementById("periodNote").textContent =
+                "From " + formatDate(from) + " to " + formatDate(to);
+
+        } else {
+            document.getElementById("periodNote").textContent = "All time";
+        }
+
+        try {
+
+            const report = await apiGet(path);
+
+            const summary = report.summary;
+
+            document.getElementById("totalSales").textContent = money(summary.totalSales);
+            document.getElementById("billCount").textContent = summary.billCount;
+            document.getElementById("itemsSold").textContent = summary.itemsSold;
+            document.getElementById("averageBill").textContent = money(summary.averageBill);
+            document.getElementById("profit").textContent = money(summary.profit);
+
+            /* be honest when some sales cannot be counted */
+            if (summary.linesWithoutCost > 0) {
+                showAlert("alertBox",
+                    "Profit excludes " + summary.linesWithoutCost + " sold line(s) " +
+                    "that have no purchase price recorded, so the real profit is " +
+                    "higher than the figure shown.",
+                    "info");
+            }
+            document.getElementById("discount").textContent = money(summary.discount);
+            document.getElementById("cost").textContent = money(summary.cost);
+            document.getElementById("gst").textContent = money(summary.gst);
+
+            renderTop(report.topMedicines, summary.totalSales);
+            renderDays(report.dayWise);
+
+            bills = report.bills;
+            renderBills(bills);
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+        }
+    }
+
+
+    function renderTop(list, totalSales) {
+
+        const area = document.getElementById("topArea");
+
+        if (!list || list.length === 0) {
+
+            area.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#128200;</div>' +
+                    "<h3>No sales in this period</h3>" +
+                    "<p>Try a wider date range.</p>" +
+                "</div>";
+
+            return;
+        }
+
+        let rows = "";
+        let rank = 1;
+
+        list.forEach(function (item) {
+
+            const share = totalSales > 0
+                ? (item.revenue / totalSales * 100).toFixed(1)
+                : "0.0";
+
+            rows +=
+                "<tr>" +
+                    '<td class="center">' + (rank++) + "</td>" +
+                    "<td><strong>" + safe(item.medicineName) + "</strong></td>" +
+                    '<td class="center">' + item.quantitySold + "</td>" +
+                    '<td class="right">' + money(item.revenue) + "</td>" +
+                    '<td class="right">' + money(item.discount) + "</td>" +
+                    '<td class="right">' +
+                        profitCell(item.profit, item.costKnown) + "</td>" +
+                    '<td class="right">' + share + "%</td>" +
+                "</tr>";
+        });
+
+        area.innerHTML =
+            '<div class="table-wrap"><table>' +
+                "<thead><tr>" +
+                    '<th class="center">Rank</th>' +
+                    "<th>Medicine</th>" +
+                    '<th class="center">Units Sold</th>' +
+                    '<th class="right">Revenue</th>' +
+                    '<th class="right">Discount</th>' +
+                    '<th class="right">Profit</th>' +
+                    '<th class="right">Share</th>' +
+                "</tr></thead>" +
+                "<tbody>" + rows + "</tbody>" +
+            "</table></div>";
+    }
+
+
+    function renderDays(dayWise) {
+
+        const area = document.getElementById("dayArea");
+
+        const days = Object.keys(dayWise || {}).sort().reverse();
+
+        if (days.length === 0) {
+
+            area.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#128197;</div>' +
+                    "<h3>No sales in this period</h3>" +
+                "</div>";
+
+            return;
+        }
+
+        /* the biggest day, so the bars can be drawn in proportion */
+        let biggest = 0;
+
+        days.forEach(function (day) {
+            biggest = Math.max(biggest, dayWise[day]);
+        });
+
+        let rows = "";
+
+        days.forEach(function (day) {
+
+            const amount = dayWise[day];
+            const width = biggest > 0 ? (amount / biggest * 100) : 0;
+
+            rows +=
+                "<tr>" +
+                    "<td>" + formatDate(day) + "</td>" +
+                    '<td class="right">' + money(amount) + "</td>" +
+                    '<td style="width:55%;">' +
+                        '<div style="height:9px;border-radius:20px;' +
+                            "background:linear-gradient(90deg,#00d1b2,#4f7cff);" +
+                            'width:' + width + '%;min-width:3px;"></div>' +
+                    "</td>" +
+                "</tr>";
+        });
+
+        area.innerHTML =
+            '<div class="table-wrap"><table>' +
+                "<thead><tr>" +
+                    "<th>Date</th>" +
+                    '<th class="right">Sales</th>' +
+                    "<th>Compared To The Best Day</th>" +
+                "</tr></thead>" +
+                "<tbody>" + rows + "</tbody>" +
+            "</table></div>";
+    }
+
+
+    function renderBills(list) {
+
+        const area = document.getElementById("billArea");
+
+        if (list.length === 0) {
+
+            area.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#129534;</div>' +
+                    "<h3>No bills found</h3>" +
+                    "<p>Nothing was sold in this period.</p>" +
+                "</div>";
+
+            return;
+        }
+
+        let rows = "";
+
+        list.forEach(function (bill, index) {
+
+            /* the summary row */
+            rows +=
+                '<tr style="cursor:pointer;" onclick="toggle(' + index + ')">' +
+                    "<td><strong>" + safe(bill.billNumber) + "</strong>" +
+                        '<div style="color:#8fa0b6;font-size:11.5px;">' +
+                        "click to open</div></td>" +
+                    "<td>" + safe(bill.customerName) + "</td>" +
+                    "<td>" + safe(bill.mobile) + "</td>" +
+                    "<td>" + safe(bill.userEmail || "Counter sale") + "</td>" +
+                    "<td>" + formatDateTime(bill.orderDate) + "</td>" +
+                    '<td class="center">' + bill.itemCount + "</td>" +
+                    '<td class="right">' + money(bill.discount) + "</td>" +
+                    '<td class="right">' + money(bill.gst) + "</td>" +
+                    '<td class="right">' + money(bill.total) + "</td>" +
+                    '<td class="right">' +
+                        profitCell(bill.profit, bill.costKnown) + "</td>" +
+                    '<td class="center">' +
+                        '<button class="btn btn-danger btn-sm" ' +
+                        'onclick="event.stopPropagation(); removeBill(\'' +
+                        bill.billNumber + '\')">Delete</button>' +
+                    "</td>" +
+                "</tr>";
+
+            /* the hidden detail row */
+            let lines = "";
+
+            bill.items.forEach(function (item) {
+
+                lines +=
+                    "<tr>" +
+                        "<td>" + safe(item.medicineName) + "</td>" +
+                        '<td class="center">' + item.quantity + "</td>" +
+                        '<td class="right">' + money(item.purchasePrice) + "</td>" +
+                        '<td class="right">' + money(item.price) + "</td>" +
+                        '<td class="center">' +
+                            discountBadge(item.discountPercent) + "</td>" +
+                        '<td class="right">' + money(item.subtotal) + "</td>" +
+                        '<td class="right">' + money(item.discount) + "</td>" +
+                        '<td class="right">' + money(item.gst) + "</td>" +
+                        '<td class="right">' + money(item.total) + "</td>" +
+                        '<td class="right">' +
+                            profitCell(item.profit, item.costKnown) + "</td>" +
+                    "</tr>";
+            });
+
+            rows +=
+                '<tr id="detail_' + index + '" hidden>' +
+                    '<td colspan="11" style="background:rgba(255,255,255,0.02);">' +
+                        '<div class="table-wrap" style="border:none;">' +
+                        "<table><thead><tr>" +
+                            "<th>Medicine</th>" +
+                            '<th class="center">Qty</th>' +
+                            '<th class="right">Purchase</th>' +
+                            '<th class="right">MRP</th>' +
+                            '<th class="center">Disc %</th>' +
+                            '<th class="right">Amount</th>' +
+                            '<th class="right">Discount</th>' +
+                            '<th class="right">GST</th>' +
+                            '<th class="right">Total</th>' +
+                            '<th class="right">Profit</th>' +
+                        "</tr></thead><tbody>" + lines + "</tbody></table></div>" +
+                    "</td>" +
+                "</tr>";
+        });
+
+        area.innerHTML =
+            '<div class="table-wrap"><table>' +
+                "<thead><tr>" +
+                    "<th>Bill Number</th><th>Customer</th><th>Mobile</th>" +
+                    "<th>Account</th><th>Date</th>" +
+                    '<th class="center">Items</th>' +
+                    '<th class="right">Discount</th>' +
+                    '<th class="right">GST</th>' +
+                    '<th class="right">Total</th>' +
+                    '<th class="right">Profit</th>' +
+                    '<th class="center">Action</th>' +
+                "</tr></thead>" +
+                "<tbody>" + rows + "</tbody>" +
+            "</table></div>";
+    }
+
+
+    function toggle(index) {
+
+        const row = document.getElementById("detail_" + index);
+
+        if (row) {
+            row.hidden = !row.hidden;
+        }
+    }
+
+
+    async function removeBill(billNumber) {
+
+        const sure = confirm(
+            "Delete bill " + billNumber + " permanently?\n\n" +
+            "The sold stock will NOT be returned to the medicine table."
+        );
+
+        if (!sure) {
+            return;
+        }
+
+        try {
+
+            const result = await apiDelete(
+                "/api/orders/bills/" + encodeURIComponent(billNumber));
+
+            if (result.success) {
+                toast(result.message, "success");
+                await loadReport();
+
+            } else {
+                showAlert("alertBox", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+        }
+    }
+
+
+    /* search inside the loaded bills */
+    document.getElementById("searchBox")
+        .addEventListener("input", function () {
+
+        const keyword = this.value.trim().toLowerCase();
+
+        const list = bills.filter(function (bill) {
+
+            return keyword === "" ||
+                (bill.billNumber || "").toLowerCase().indexOf(keyword) >= 0 ||
+                (bill.customerName || "").toLowerCase().indexOf(keyword) >= 0 ||
+                (bill.mobile || "").toLowerCase().indexOf(keyword) >= 0 ||
+                (bill.userEmail || "").toLowerCase().indexOf(keyword) >= 0;
+        });
+
+        renderBills(list);
+    });
+
+
+    loadReport();
+
+</script>
+
+</body>
+</html>

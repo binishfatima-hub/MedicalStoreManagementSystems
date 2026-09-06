@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Admin Profile | MediCare Admin Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav>
+
+    <a href="dashboard.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag admin">Admin Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="stock-report.html">Stock Report</a>
+        <a href="sales-report.html">Sales Report</a>
+        <a href="users.html">Users</a>
+        <a href="profile.html" class="active">Profile</a>
+        <a href="#" onclick="logoutAdmin(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+        <div>
+            <h1>Admin <span>Profile</span></h1>
+            <p>Your details and your admin password.</p>
+        </div>
+    </div>
+
+
+    <!-- DETAILS -->
+    <div class="card">
+
+        <h2>Admin Details</h2>
+        <p class="card-sub">
+            The username is used to login and cannot be changed here.
+        </p>
+
+        <div id="profileAlert" class="alert"></div>
+
+        <form id="profileForm">
+
+            <div class="form-grid">
+
+                <div class="field">
+                    <label>Name</label>
+                    <input type="text" id="name" required>
+                </div>
+
+                <div class="field">
+                    <label>Username (login id)</label>
+                    <input type="text" id="username" disabled>
+                </div>
+
+                <div class="field">
+                    <label>Email</label>
+                    <input type="email" id="email" required>
+                </div>
+
+                <div class="field">
+                    <label>Mobile</label>
+                    <input type="tel" id="mobile" maxlength="10">
+                </div>
+
+            </div>
+
+            <button type="submit" class="btn btn-primary">Save Changes</button>
+
+        </form>
+
+    </div>
+
+
+    <!-- PASSWORD -->
+    <div class="card">
+
+        <h2>Change Admin Password</h2>
+        <p class="card-sub">
+            Please change the default password (admin123) before you
+            show this project.
+        </p>
+
+        <div id="passwordAlert" class="alert"></div>
+
+        <form id="passwordForm">
+
+            <div class="field">
+                <label>Current Password</label>
+                <input type="password" id="oldPassword" required>
+            </div>
+
+            <div class="form-grid">
+
+                <div class="field">
+                    <label>New Password</label>
+                    <input type="password" id="newPassword"
+                           placeholder="At least 4 characters" required>
+                </div>
+
+                <div class="field">
+                    <label>Confirm New Password</label>
+                    <input type="password" id="confirmPassword" required>
+                </div>
+
+            </div>
+
+            <button type="submit" class="btn btn-primary">Update Password</button>
+
+        </form>
+
+    </div>
+
+
+    <!-- HOW LOGIN WORKS -->
+    <div class="card">
+
+        <h2>How The Two Logins Work</h2>
+        <p class="card-sub">Useful when you explain the project.</p>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th></th>
+                        <th>Admin Panel</th>
+                        <th>User Panel</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Database table</td>
+                        <td><code>admin</code></td>
+                        <td><code>users</code></td>
+                    </tr>
+                    <tr>
+                        <td>Login id</td>
+                        <td>username</td>
+                        <td>email</td>
+                    </tr>
+                    <tr>
+                        <td>Can register online?</td>
+                        <td>No &mdash; created in the database</td>
+                        <td>Yes &mdash; from the register page</td>
+                    </tr>
+                    <tr>
+                        <td>Password storage</td>
+                        <td>SHA-256 hash</td>
+                        <td>SHA-256 hash</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>Admin Panel</div>
+</footer>
+
+
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+
+<script>
+
+    const admin = requireAdmin();
+
+    document.getElementById("name").value = admin.name || "";
+    document.getElementById("username").value = admin.username || "";
+    document.getElementById("email").value = admin.email || "";
+    document.getElementById("mobile").value = admin.mobile || "";
+
+
+    /* ---------- save details ---------- */
+
+    document.getElementById("profileForm")
+        .addEventListener("submit", async function (event) {
+
+        event.preventDefault();
+        hideAlert("profileAlert");
+
+        try {
+
+            const result = await apiPut("/api/admins/" + admin.id, {
+                name: document.getElementById("name").value.trim(),
+                email: document.getElementById("email").value.trim(),
+                mobile: document.getElementById("mobile").value.trim()
+            });
+
+            if (result.success) {
+
+                saveAdmin(result.data);
+
+                showAlert("profileAlert", result.message, "success");
+                toast("Profile updated", "success");
+
+            } else {
+                showAlert("profileAlert", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("profileAlert", error.message, "error");
+        }
+
+    });
+
+
+    /* ---------- change password ---------- */
+
+    document.getElementById("passwordForm")
+        .addEventListener("submit", async function (event) {
+
+        event.preventDefault();
+        hideAlert("passwordAlert");
+
+        const newPassword = document.getElementById("newPassword").value;
+        const confirmPassword = document.getElementById("confirmPassword").value;
+
+        if (newPassword.length < 4) {
+            showAlert("passwordAlert",
+                "New password must be at least 4 characters", "error");
+            return;
+        }
+
+        if (newPassword !== confirmPassword) {
+            showAlert("passwordAlert",
+                "New password and confirm password do not match", "error");
+            return;
+        }
+
+        try {
+
+            const result = await apiPut("/api/admins/" + admin.id + "/password", {
+                oldPassword: document.getElementById("oldPassword").value,
+                newPassword: newPassword,
+                confirmPassword: confirmPassword
+            });
+
+            if (result.success) {
+
+                showAlert("passwordAlert", result.message, "success");
+                toast("Password updated", "success");
+
+                document.getElementById("passwordForm").reset();
+
+            } else {
+                showAlert("passwordAlert", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("passwordAlert", error.message, "error");
+        }
+
+    });
+
+</script>
+
+</body>
+</html>

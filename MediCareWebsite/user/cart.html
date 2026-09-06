@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>My Cart | MediCare User Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav>
+
+    <a href="home.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag">User Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="home.html">Home</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="my-orders.html">My Orders</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+        <a href="profile.html">Profile</a>
+        <a href="cart.html" class="cart-link active" id="cartLink">Cart (0)</a>
+        <a href="#" onclick="logoutUser(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+
+        <div>
+            <h1>My <span>Cart</span></h1>
+            <p>Check your medicines, then continue to checkout.</p>
+        </div>
+
+        <a href="medicines.html" class="btn btn-ghost">
+            &larr; Continue Shopping
+        </a>
+
+    </div>
+
+
+    <div id="alertBox" class="alert"></div>
+
+    <div class="card">
+        <div id="cartArea">
+            <div class="empty">
+                <div class="empty-icon">&#8987;</div>
+                <p>Loading your cart...</p>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>User Panel</div>
+</footer>
+
+
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/cart.js"></script>
+
+<script>
+
+    const user = requireUser();
+
+    refreshCartBadge();
+
+    /* live stock, so we can warn if something went out of stock */
+    let stockById = {};
+
+
+    async function loadCart() {
+
+        try {
+            const medicines = await apiGet("/api/medicines");
+
+            stockById = {};
+
+            medicines.forEach(function (medicine) {
+                stockById[medicine.id] = medicine;
+            });
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+        }
+
+        render();
+    }
+
+
+    function render() {
+
+        const items = getCart();
+        const area = document.getElementById("cartArea");
+
+        refreshCartBadge();
+
+        if (items.length === 0) {
+
+            area.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#128722;</div>' +
+                    "<h3>Your cart is empty</h3>" +
+                    "<p>Add some medicines to get started.</p>" +
+                    '<a href="medicines.html" class="btn btn-primary" ' +
+                        'style="margin-top:16px;">Browse Medicines</a>' +
+                "</div>";
+
+            return;
+        }
+
+        let rows = "";
+        let anyProblem = false;
+
+        items.forEach(function (item) {
+
+            const live = stockById[item.id];
+            const available = live ? Number(live.quantity || 0) : 0;
+
+            let warning = "";
+
+            if (!live) {
+                warning = '<span class="badge red">REMOVED BY STORE</span>';
+                anyProblem = true;
+
+            } else if (item.quantity > available) {
+                warning = '<span class="badge orange">ONLY ' + available +
+                          " LEFT</span>";
+                anyProblem = true;
+            }
+
+            const discountPercent = Number(item.discountPercent || 0);
+
+            const finalPrice = Number(
+                item.finalPrice != null ? item.finalPrice : item.price);
+
+            const priceCell = discountPercent > 0
+                ? '<span class="mrp-cut" style="font-size:12px;">' +
+                      money(item.price) + "</span><br><strong>" +
+                      money(finalPrice) + "</strong>"
+                : money(item.price);
+
+            rows +=
+                "<tr>" +
+                    "<td><strong>" + safe(item.name) + "</strong>" +
+                        '<div style="color:#8fa0b6;font-size:12px;">' +
+                        safe(item.company || "-") + "</div></td>" +
+
+                    '<td class="right">' + priceCell + "</td>" +
+
+                    '<td class="center">' + discountBadge(discountPercent) + "</td>" +
+
+                    '<td class="center">' +
+                        '<input type="number" min="1" value="' + item.quantity + '" ' +
+                            'style="width:72px;padding:8px;text-align:center;' +
+                            'background:rgba(255,255,255,0.05);color:#f5f9ff;' +
+                            'border:1px solid rgba(255,255,255,0.1);border-radius:9px;" ' +
+                            'onchange="changeQuantity(' + item.id + ', this.value)">' +
+                    "</td>" +
+
+                    '<td class="center">' + warning + "</td>" +
+
+                    '<td class="right">' +
+                        money(finalPrice * item.quantity) + "</td>" +
+
+                    '<td class="center">' +
+                        '<button class="btn btn-danger btn-sm" ' +
+                            'onclick="remove(' + item.id + ')">Remove</button>' +
+                    "</td>" +
+                "</tr>";
+        });
+
+        const totals = cartTotals();
+
+        area.innerHTML =
+            '<div class="table-wrap"><table>' +
+                "<thead><tr>" +
+                    "<th>Medicine</th>" +
+                    '<th class="right">Price</th>' +
+                    '<th class="center">Discount</th>' +
+                    '<th class="center">Quantity</th>' +
+                    '<th class="center">Stock</th>' +
+                    '<th class="right">Amount</th>' +
+                    '<th class="center">Action</th>' +
+                "</tr></thead>" +
+
+                "<tbody>" + rows + "</tbody>" +
+
+                "<tfoot>" +
+                    '<tr><td colspan="5" class="right">Subtotal (MRP)</td>' +
+                        '<td class="right">' + money(totals.subtotal) + "</td><td></td></tr>" +
+
+                    (totals.discount > 0
+                        ? '<tr><td colspan="5" class="right">Discount</td>' +
+                          '<td class="right" style="color:#35d07f;">- ' +
+                          money(totals.discount) + "</td><td></td></tr>"
+                        : "") +
+
+                    '<tr><td colspan="5" class="right">GST (' +
+                        totals.gstPercent + "%)</td>" +
+                        '<td class="right">' + money(totals.gst) + "</td><td></td></tr>" +
+                    '<tr><td colspan="5" class="right">Total Payable</td>' +
+                        '<td class="right" style="color:#00d1b2;font-size:15px;">' +
+                        money(totals.total) + "</td><td></td></tr>" +
+                "</tfoot>" +
+            "</table></div>" +
+
+            '<div class="btn-row" style="margin-top:18px;justify-content:flex-end;">' +
+                '<button class="btn btn-danger" onclick="emptyCart()">Empty Cart</button>' +
+                '<a href="checkout.html" class="btn btn-primary"' +
+                    (anyProblem ? ' style="pointer-events:none;opacity:0.5;"' : "") +
+                    ">Proceed to Checkout &rarr;</a>" +
+            "</div>" +
+
+            (anyProblem
+                ? '<div class="alert error show" style="margin-top:14px;">' +
+                  "Please fix the highlighted rows before checkout &mdash; " +
+                  "the store does not have that much stock any more.</div>"
+                : "");
+    }
+
+
+    function changeQuantity(id, value) {
+
+        const wanted = Math.max(1, Number(value) || 1);
+
+        updateCartQuantity(id, wanted);
+
+        render();
+    }
+
+
+    function remove(id) {
+
+        removeFromCart(id);
+
+        toast("Removed from cart");
+
+        render();
+    }
+
+
+    function emptyCart() {
+
+        if (!confirm("Remove everything from your cart?")) {
+            return;
+        }
+
+        clearCart();
+
+        toast("Cart emptied");
+
+        render();
+    }
+
+
+    loadCart();
+
+</script>
+
+</body>
+</html>
