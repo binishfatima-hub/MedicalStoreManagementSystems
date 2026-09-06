@@ -1,0 +1,284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Checkout | MediCare User Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav>
+
+    <a href="home.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag">User Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="home.html">Home</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="my-orders.html">My Orders</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+        <a href="profile.html">Profile</a>
+        <a href="cart.html" class="cart-link" id="cartLink">Cart (0)</a>
+        <a href="#" onclick="logoutUser(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+
+        <div>
+            <h1>Check<span>out</span></h1>
+            <p>Confirm your details and place the order.</p>
+        </div>
+
+        <a href="cart.html" class="btn btn-ghost">&larr; Back to Cart</a>
+
+    </div>
+
+
+    <div id="alertBox" class="alert"></div>
+
+
+    <!-- ORDER SUMMARY -->
+    <div class="card">
+
+        <h2>Order Summary</h2>
+        <p class="card-sub">These medicines will be billed.</p>
+
+        <div id="summary"></div>
+
+    </div>
+
+
+    <!-- CUSTOMER DETAILS -->
+    <div class="card">
+
+        <h2>Delivery / Billing Details</h2>
+        <p class="card-sub">
+            Filled from your account. You can change them for this order.
+        </p>
+
+        <form id="checkoutForm">
+
+            <div class="form-grid">
+
+                <div class="field">
+                    <label>Customer Name</label>
+                    <input type="text" id="customerName" required>
+                </div>
+
+                <div class="field">
+                    <label>Mobile Number</label>
+                    <input type="tel" id="mobile" maxlength="10"
+                           pattern="[0-9]{10}" required>
+                </div>
+
+            </div>
+
+            <div class="field">
+                <label>Registered Email (User ID)</label>
+                <input type="email" id="email" disabled>
+                <small class="hint">
+                    The bill is saved against this account.
+                </small>
+            </div>
+
+            <button type="submit" id="placeBtn" class="btn btn-primary btn-block">
+                Place Order
+            </button>
+
+        </form>
+
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>User Panel</div>
+</footer>
+
+
+<!-- SQLite runs inside the browser, so there is no server.
+     Load order matters: the engine, then the hashing, then the
+     schema, then the database, and api.js last because it uses
+     all of them. -->
+<script src="../assets/vendor/sql-wasm.js"></script>
+<script src="../assets/js/sha256.js"></script>
+<script src="../assets/js/schema.js"></script>
+<script src="../assets/js/db.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/cart.js"></script>
+
+<script>
+
+    const user = requireUser();
+
+    refreshCartBadge();
+
+    /* pre-fill the form from the logged-in account */
+    document.getElementById("customerName").value = user.name || "";
+    document.getElementById("mobile").value = user.mobile || "";
+    document.getElementById("email").value = user.email || "";
+
+
+    function showSummary() {
+
+        const items = getCart();
+        const box = document.getElementById("summary");
+
+        if (items.length === 0) {
+
+            box.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#128722;</div>' +
+                    "<h3>Your cart is empty</h3>" +
+                    "<p>Add medicines before checking out.</p>" +
+                    '<a href="medicines.html" class="btn btn-primary" ' +
+                        'style="margin-top:16px;">Browse Medicines</a>' +
+                "</div>";
+
+            document.getElementById("placeBtn").disabled = true;
+
+            return;
+        }
+
+        let rows = "";
+
+        items.forEach(function (item) {
+
+            const finalPrice = Number(
+                item.finalPrice != null ? item.finalPrice : item.price);
+
+            rows +=
+                "<tr>" +
+                    "<td>" + safe(item.name) + "</td>" +
+                    '<td class="center">' + item.quantity + "</td>" +
+                    '<td class="right">' + money(item.price) + "</td>" +
+                    '<td class="center">' +
+                        discountBadge(item.discountPercent) + "</td>" +
+                    '<td class="right">' +
+                        money(finalPrice * item.quantity) + "</td>" +
+                "</tr>";
+        });
+
+        const totals = cartTotals();
+
+        box.innerHTML =
+            '<div class="table-wrap"><table>' +
+                "<thead><tr>" +
+                    "<th>Medicine</th>" +
+                    '<th class="center">Qty</th>' +
+                    '<th class="right">MRP</th>' +
+                    '<th class="center">Discount</th>' +
+                    '<th class="right">Amount</th>' +
+                "</tr></thead>" +
+                "<tbody>" + rows + "</tbody>" +
+                "<tfoot>" +
+                    '<tr><td colspan="4" class="right">Subtotal (MRP)</td>' +
+                        '<td class="right">' + money(totals.subtotal) + "</td></tr>" +
+
+                    (totals.discount > 0
+                        ? '<tr><td colspan="4" class="right">Discount</td>' +
+                          '<td class="right" style="color:#35d07f;">- ' +
+                          money(totals.discount) + "</td></tr>"
+                        : "") +
+
+                    '<tr><td colspan="4" class="right">GST (' + totals.gstPercent +
+                        '%)</td><td class="right">' + money(totals.gst) + "</td></tr>" +
+                    '<tr><td colspan="4" class="right">Total Payable</td>' +
+                        '<td class="right" style="color:#00d1b2;font-size:15px;">' +
+                        money(totals.total) + "</td></tr>" +
+                "</tfoot>" +
+            "</table></div>";
+    }
+
+
+    document.getElementById("checkoutForm")
+        .addEventListener("submit", async function (event) {
+
+        event.preventDefault();
+        hideAlert("alertBox");
+
+        const items = getCart();
+
+        if (items.length === 0) {
+            showAlert("alertBox", "Your cart is empty", "error");
+            return;
+        }
+
+        const customerName =
+            document.getElementById("customerName").value.trim();
+
+        const mobile = document.getElementById("mobile").value.trim();
+
+        if (!/^[0-9]{10}$/.test(mobile)) {
+            showAlert("alertBox", "Mobile number must be exactly 10 digits", "error");
+            return;
+        }
+
+        const button = document.getElementById("placeBtn");
+
+        button.disabled = true;
+        button.textContent = "Placing your order...";
+
+        try {
+
+            /* Only the id and quantity are sent. The price is taken
+               from the database, and the stock is reduced there too, so
+               nothing can be changed from this page. */
+
+            const result = await apiPost("/api/orders", {
+                userId: user.id,
+                userEmail: user.email,
+                customerName: customerName,
+                mobile: mobile,
+                items: items.map(function (item) {
+                    return { medicineId: item.id, quantity: item.quantity };
+                })
+            });
+
+            if (result.success) {
+
+                clearCart();
+
+                const billNumber = result.data.billNumber;
+
+                window.location.href =
+                    "bill.html?bill=" + encodeURIComponent(billNumber) + "&new=1";
+
+            } else {
+                showAlert("alertBox", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+
+        } finally {
+            button.disabled = false;
+            button.textContent = "Place Order";
+        }
+
+    });
+
+
+    showSummary();
+
+</script>
+
+</body>
+</html>

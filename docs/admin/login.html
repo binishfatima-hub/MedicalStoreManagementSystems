@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Admin Login | MediCare Admin Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<div class="auth-page">
+
+    <div class="auth-box">
+
+        <div class="auth-logo">
+            <div class="logo-icon" style="width:38px;height:38px;font-size:20px;">&#10010;</div>
+            <span class="logo-text">Medi<span>Care</span></span>
+        </div>
+
+        <div class="auth-tag admin">Admin Panel</div>
+
+        <h1>Store Admin Login</h1>
+
+        <p class="auth-sub">
+            Only the store admin can manage medicines, stock and reports.
+        </p>
+
+
+        <div id="alertBox" class="alert"></div>
+
+
+        <form id="loginForm">
+
+            <div class="field">
+                <label>Username</label>
+                <input type="text" id="username" placeholder="Admin username" required>
+            </div>
+
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="Admin password" required>
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn btn-primary btn-block">
+                Login to Admin Panel
+            </button>
+
+        </form>
+
+
+        <div class="demo-note">
+            Default login &mdash;
+            username <strong>admin</strong>,
+            password <strong>admin123</strong>
+            <br>
+            (change it from Admin Profile after logging in)
+        </div>
+
+        <div class="auth-foot">
+            Are you a customer?
+            <a href="../user/login.html">Go to the User Panel</a>
+        </div>
+
+        <div class="auth-foot">
+            <a href="../index.html">&larr; Back to home</a>
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- SQLite runs inside the browser, so there is no server.
+     Load order matters: the engine, then the hashing, then the
+     schema, then the database, and api.js last because it uses
+     all of them. -->
+<script src="../assets/vendor/sql-wasm.js"></script>
+<script src="../assets/js/sha256.js"></script>
+<script src="../assets/js/schema.js"></script>
+<script src="../assets/js/db.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+
+<script>
+
+    const form = document.getElementById("loginForm");
+    const submitBtn = document.getElementById("submitBtn");
+
+
+    form.addEventListener("submit", async function (event) {
+
+        event.preventDefault();
+        hideAlert("alertBox");
+
+        const username = document.getElementById("username").value.trim();
+        const password = document.getElementById("password").value;
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Checking...";
+
+        try {
+
+            const result = await apiPost("/api/auth/admin/login", {
+                username: username,
+                password: password
+            });
+
+            if (result.success) {
+
+                saveAdmin(result.data);
+
+                window.location.href = "dashboard.html";
+
+            } else {
+                showAlert("alertBox", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Login to Admin Panel";
+        }
+
+    });
+
+</script>
+
+</body>
+</html>

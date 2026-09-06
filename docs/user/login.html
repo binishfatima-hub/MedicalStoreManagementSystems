@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Login | MediCare User Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<div class="auth-page">
+
+    <div class="auth-box">
+
+        <div class="auth-logo">
+            <div class="logo-icon" style="width:38px;height:38px;font-size:20px;">&#10010;</div>
+            <span class="logo-text">Medi<span>Care</span></span>
+        </div>
+
+        <div class="auth-tag">User Panel</div>
+
+        <h1>Welcome back</h1>
+
+        <p class="auth-sub">
+            Login with the email and password you registered with.
+        </p>
+
+
+        <div id="alertBox" class="alert"></div>
+
+
+        <form id="loginForm">
+
+            <div class="field">
+                <label>Email (User ID)</label>
+                <input type="email" id="email" placeholder="e.g. ravi@gmail.com" required>
+            </div>
+
+            <div class="field">
+                <label>Password</label>
+                <input type="password" id="password" placeholder="Your password" required>
+            </div>
+
+            <button type="submit" id="submitBtn" class="btn btn-primary btn-block">
+                Login
+            </button>
+
+        </form>
+
+
+        <div class="auth-foot">
+            New here?
+            <a href="register.html">Create an account</a>
+        </div>
+
+        <div class="auth-foot">
+            <a href="../index.html">&larr; Back to home</a>
+        </div>
+
+    </div>
+
+</div>
+
+
+<!-- SQLite runs inside the browser, so there is no server.
+     Load order matters: the engine, then the hashing, then the
+     schema, then the database, and api.js last because it uses
+     all of them. -->
+<script src="../assets/vendor/sql-wasm.js"></script>
+<script src="../assets/js/sha256.js"></script>
+<script src="../assets/js/schema.js"></script>
+<script src="../assets/js/db.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+
+<script>
+
+    const form = document.getElementById("loginForm");
+    const submitBtn = document.getElementById("submitBtn");
+
+
+    form.addEventListener("submit", async function (event) {
+
+        event.preventDefault();
+        hideAlert("alertBox");
+
+        const email = document.getElementById("email").value.trim();
+        const password = document.getElementById("password").value;
+
+        submitBtn.disabled = true;
+        submitBtn.textContent = "Checking...";
+
+        try {
+
+            const result = await apiPost("/api/auth/user/login", {
+                email: email,
+                password: password
+            });
+
+            if (result.success) {
+
+                // remember the logged-in user for the whole tab
+                saveUser(result.data);
+
+                window.location.href = "home.html";
+
+            } else {
+                showAlert("alertBox", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+
+        } finally {
+            submitBtn.disabled = false;
+            submitBtn.textContent = "Login";
+        }
+
+    });
+
+</script>
+
+</body>
+</html>

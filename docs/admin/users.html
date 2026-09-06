@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Registered Users | MediCare Admin Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav>
+
+    <a href="dashboard.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag admin">Admin Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="dashboard.html">Dashboard</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="stock-report.html">Stock Report</a>
+        <a href="sales-report.html">Sales Report</a>
+        <a href="users.html" class="active">Users</a>
+        <a href="profile.html">Profile</a>
+        <a href="#" onclick="logoutAdmin(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+
+        <div>
+            <h1>Registered <span>Users</span></h1>
+            <p>Everyone who registered from the user panel.</p>
+        </div>
+
+        <button class="btn btn-ghost" onclick="loadUsers()">&#8635; Refresh</button>
+
+    </div>
+
+
+    <div id="alertBox" class="alert"></div>
+
+
+    <div class="stats">
+
+        <div class="stat">
+            <div class="stat-icon">&#128101;</div>
+            <h3 id="totalUsers">0</h3>
+            <p>Total Users</p>
+        </div>
+
+        <div class="stat good">
+            <div class="stat-icon">&#9989;</div>
+            <h3 id="activeUsers">0</h3>
+            <p>Active</p>
+        </div>
+
+        <div class="stat bad">
+            <div class="stat-icon">&#128683;</div>
+            <h3 id="blockedUsers">0</h3>
+            <p>Blocked</p>
+        </div>
+
+        <div class="stat good">
+            <div class="stat-icon">&#8377;</div>
+            <h3 id="totalRevenue">Rs. 0.00</h3>
+            <p>Total Revenue (All Bills)</p>
+        </div>
+
+    </div>
+
+
+    <div class="toolbar">
+        <input type="text" id="searchBox"
+               placeholder="Search by name, email or mobile...">
+        <div class="spacer"></div>
+        <div style="color:#8fa0b6;font-size:13px;">
+            <strong id="shownCount" style="color:#f5f9ff;">0</strong> shown
+        </div>
+    </div>
+
+
+    <div class="card">
+        <div id="tableArea">
+            <div class="empty">
+                <div class="empty-icon">&#8987;</div>
+                <p>Loading users...</p>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>Admin Panel</div>
+</footer>
+
+
+<!-- SQLite runs inside the browser, so there is no server.
+     Load order matters: the engine, then the hashing, then the
+     schema, then the database, and api.js last because it uses
+     all of them. -->
+<script src="../assets/vendor/sql-wasm.js"></script>
+<script src="../assets/js/sha256.js"></script>
+<script src="../assets/js/schema.js"></script>
+<script src="../assets/js/db.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+
+<script>
+
+    const admin = requireAdmin();
+
+    let users = [];
+
+    /* userId -> { bills, spent } so we can show what each user bought */
+    let purchases = {};
+
+
+    async function loadUsers() {
+
+        hideAlert("alertBox");
+
+        try {
+
+            users = await apiGet("/api/users");
+
+            const bills = await apiGet("/api/orders/bills");
+
+            purchases = {};
+            let revenue = 0;
+
+            bills.forEach(function (bill) {
+
+                revenue = revenue + Number(bill.total || 0);
+
+                /* the user id is on every line of the bill */
+                const line = bill.items[0];
+                const userId = line ? line.userId : null;
+
+                if (userId) {
+
+                    if (!purchases[userId]) {
+                        purchases[userId] = { bills: 0, spent: 0 };
+                    }
+
+                    purchases[userId].bills++;
+                    purchases[userId].spent += Number(bill.total || 0);
+                }
+            });
+
+            let active = 0;
+
+            users.forEach(function (user) {
+                if (user.status !== "BLOCKED") active++;
+            });
+
+            document.getElementById("totalUsers").textContent = users.length;
+            document.getElementById("activeUsers").textContent = active;
+            document.getElementById("blockedUsers").textContent = users.length - active;
+            document.getElementById("totalRevenue").textContent = money(revenue);
+
+            applySearch();
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+        }
+    }
+
+
+    function applySearch() {
+
+        const keyword =
+            document.getElementById("searchBox").value.trim().toLowerCase();
+
+        const list = users.filter(function (user) {
+
+            return keyword === "" ||
+                (user.name || "").toLowerCase().indexOf(keyword) >= 0 ||
+                (user.email || "").toLowerCase().indexOf(keyword) >= 0 ||
+                (user.mobile || "").toLowerCase().indexOf(keyword) >= 0;
+        });
+
+        render(list);
+    }
+
+
+    function render(list) {
+
+        const area = document.getElementById("tableArea");
+
+        document.getElementById("shownCount").textContent = list.length;
+
+        if (list.length === 0) {
+
+            area.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#128101;</div>' +
+                    "<h3>No users found</h3>" +
+                    "<p>Customers appear here after they register.</p>" +
+                "</div>";
+
+            return;
+        }
+
+        let rows = "";
+
+        list.forEach(function (user) {
+
+            const bought = purchases[user.id] || { bills: 0, spent: 0 };
+
+            const blocked = user.status === "BLOCKED";
+
+            rows +=
+                "<tr>" +
+                    '<td class="center">' + user.id + "</td>" +
+                    "<td><strong>" + safe(user.name) + "</strong></td>" +
+                    "<td>" + safe(user.email) + "</td>" +
+                    "<td>" + safe(user.mobile) + "</td>" +
+                    "<td>" + formatDate(user.createdAt) + "</td>" +
+                    '<td class="center">' + bought.bills + "</td>" +
+                    '<td class="right">' + money(bought.spent) + "</td>" +
+                    '<td class="center">' +
+                        (blocked
+                            ? '<span class="badge red">BLOCKED</span>'
+                            : '<span class="badge green">ACTIVE</span>') +
+                    "</td>" +
+                    '<td class="center">' +
+                        '<div class="btn-row" style="justify-content:center;">' +
+                            '<button class="btn ' +
+                                (blocked ? "btn-ghost" : "btn-warn") +
+                                ' btn-sm" onclick="toggleStatus(' + user.id + ", '" +
+                                (blocked ? "ACTIVE" : "BLOCKED") + "')\">" +
+                                (blocked ? "Unblock" : "Block") + "</button>" +
+                            '<button class="btn btn-danger btn-sm" onclick="removeUser(' +
+                                user.id + ')">Delete</button>' +
+                        "</div>" +
+                    "</td>" +
+                "</tr>";
+        });
+
+        area.innerHTML =
+            '<div class="table-wrap"><table>' +
+                "<thead><tr>" +
+                    '<th class="center">ID</th>' +
+                    "<th>Name</th><th>Email (User ID)</th><th>Mobile</th>" +
+                    "<th>Registered On</th>" +
+                    '<th class="center">Orders</th>' +
+                    '<th class="right">Total Spent</th>' +
+                    '<th class="center">Status</th>' +
+                    '<th class="center">Actions</th>' +
+                "</tr></thead>" +
+                "<tbody>" + rows + "</tbody>" +
+            "</table></div>";
+    }
+
+
+    async function toggleStatus(id, status) {
+
+        try {
+
+            const result = await apiPut(
+                "/api/users/" + id + "/status?status=" + status);
+
+            if (result.success) {
+                toast(result.message, "success");
+                await loadUsers();
+
+            } else {
+                showAlert("alertBox", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+        }
+    }
+
+
+    async function removeUser(id) {
+
+        const user = users.find(function (u) { return u.id === id; });
+
+        const sure = confirm(
+            "Delete the account of " + (user ? user.name : "this user") + "?\n\n" +
+            "Their old bills stay in the sales report."
+        );
+
+        if (!sure) {
+            return;
+        }
+
+        try {
+
+            const result = await apiDelete("/api/users/" + id);
+
+            if (result.success) {
+                toast(result.message, "success");
+                await loadUsers();
+
+            } else {
+                showAlert("alertBox", result.message, "error");
+            }
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+        }
+    }
+
+
+    document.getElementById("searchBox").addEventListener("input", applySearch);
+
+
+    loadUsers();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Contact | MediCare User Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav>
+
+    <a href="home.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag">User Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="home.html">Home</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="my-orders.html">My Orders</a>
+        <a href="about.html">About</a>
+        <a href="contact.html" class="active">Contact</a>
+        <a href="profile.html">Profile</a>
+        <a href="cart.html" class="cart-link" id="cartLink">Cart (0)</a>
+        <a href="#" onclick="logoutUser(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+        <div>
+            <h1>Contact <span>Us</span></h1>
+            <p>Reach the MediCare store for any help with your order.</p>
+        </div>
+    </div>
+
+
+    <div class="stats">
+
+        <div class="stat">
+            <div class="stat-icon">&#128222;</div>
+            <h3 style="font-size:18px;">+91 99999 99999</h3>
+            <p>Store phone (10 am to 9 pm)</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#9993;</div>
+            <h3 style="font-size:18px;">admin@medicare.com</h3>
+            <p>Email the store admin</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#127968;</div>
+            <h3 style="font-size:18px;">MediCare Pharmacy</h3>
+            <p>Main Road, Near Bus Stand</p>
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <h2>Send a Message</h2>
+        <p class="card-sub">
+            Write your question below and the store will get back to you.
+        </p>
+
+        <div id="alertBox" class="alert"></div>
+
+        <form id="contactForm">
+
+            <div class="form-grid">
+
+                <div class="field">
+                    <label>Your Name</label>
+                    <input type="text" id="name" required>
+                </div>
+
+                <div class="field">
+                    <label>Your Email</label>
+                    <input type="email" id="email" required>
+                </div>
+
+            </div>
+
+            <div class="field">
+                <label>Message</label>
+                <textarea id="message" rows="5"
+                          placeholder="Type your question here..." required></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Send Message</button>
+
+        </form>
+
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>User Panel</div>
+</footer>
+
+
+<!-- SQLite runs inside the browser, so there is no server.
+     Load order matters: the engine, then the hashing, then the
+     schema, then the database, and api.js last because it uses
+     all of them. -->
+<script src="../assets/vendor/sql-wasm.js"></script>
+<script src="../assets/js/sha256.js"></script>
+<script src="../assets/js/schema.js"></script>
+<script src="../assets/js/db.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/cart.js"></script>
+
+<script>
+
+    const user = requireUser();
+
+    refreshCartBadge();
+
+    document.getElementById("name").value = user.name || "";
+    document.getElementById("email").value = user.email || "";
+
+
+    document.getElementById("contactForm")
+        .addEventListener("submit", function (event) {
+
+        event.preventDefault();
+
+        /* This form is only a contact form for the project - there is no
+           mail server, so we just confirm it on screen. */
+
+        showAlert("alertBox",
+            "Thank you! Your message has been noted. The store will " +
+            "contact you on " + document.getElementById("email").value + ".",
+            "success");
+
+        document.getElementById("message").value = "";
+    });
+
+</script>
+
+</body>
+</html>

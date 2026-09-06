@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>My Orders | MediCare User Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav>
+
+    <a href="home.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag">User Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="home.html">Home</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="my-orders.html" class="active">My Orders</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+        <a href="profile.html">Profile</a>
+        <a href="cart.html" class="cart-link" id="cartLink">Cart (0)</a>
+        <a href="#" onclick="logoutUser(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+
+        <div>
+            <h1>My <span>Orders</span></h1>
+            <p>Every bill saved against your account.</p>
+        </div>
+
+        <button class="btn btn-ghost" onclick="loadOrders()">&#8635; Refresh</button>
+
+    </div>
+
+
+    <div class="stats">
+
+        <div class="stat">
+            <div class="stat-icon">&#129534;</div>
+            <h3 id="billCount">0</h3>
+            <p>Total Bills</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#128138;</div>
+            <h3 id="unitCount">0</h3>
+            <p>Medicines Bought</p>
+        </div>
+
+        <div class="stat good">
+            <div class="stat-icon">&#8377;</div>
+            <h3 id="spendTotal">Rs. 0.00</h3>
+            <p>Total Spent</p>
+        </div>
+
+    </div>
+
+
+    <div class="card">
+        <div id="ordersArea">
+            <div class="empty">
+                <div class="empty-icon">&#8987;</div>
+                <p>Loading your orders...</p>
+            </div>
+        </div>
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>User Panel</div>
+</footer>
+
+
+<!-- SQLite runs inside the browser, so there is no server.
+     Load order matters: the engine, then the hashing, then the
+     schema, then the database, and api.js last because it uses
+     all of them. -->
+<script src="../assets/vendor/sql-wasm.js"></script>
+<script src="../assets/js/sha256.js"></script>
+<script src="../assets/js/schema.js"></script>
+<script src="../assets/js/db.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/cart.js"></script>
+
+<script>
+
+    const user = requireUser();
+
+    refreshCartBadge();
+
+
+    async function loadOrders() {
+
+        const area = document.getElementById("ordersArea");
+
+        try {
+
+            const bills = await apiGet("/api/orders/bills/user/" + user.id);
+
+            let units = 0;
+            let spent = 0;
+
+            bills.forEach(function (bill) {
+                units = units + Number(bill.totalQuantity || 0);
+                spent = spent + Number(bill.total || 0);
+            });
+
+            document.getElementById("billCount").textContent = bills.length;
+            document.getElementById("unitCount").textContent = units;
+            document.getElementById("spendTotal").textContent = money(spent);
+
+            if (bills.length === 0) {
+
+                area.innerHTML =
+                    '<div class="empty">' +
+                        '<div class="empty-icon">&#129534;</div>' +
+                        "<h3>No orders yet</h3>" +
+                        "<p>Place your first order and it will show up here.</p>" +
+                        '<a href="medicines.html" class="btn btn-primary" ' +
+                            'style="margin-top:16px;">Browse Medicines</a>' +
+                    "</div>";
+
+                return;
+            }
+
+            let rows = "";
+
+            bills.forEach(function (bill) {
+
+                /* the medicine names of this bill, joined with commas */
+                const names = bill.items.map(function (item) {
+                    return safe(item.medicineName) + " x" + item.quantity;
+                }).join(", ");
+
+                rows +=
+                    "<tr>" +
+                        "<td><strong>" + safe(bill.billNumber) + "</strong></td>" +
+                        "<td>" + formatDateTime(bill.orderDate) + "</td>" +
+                        '<td style="max-width:280px;">' + names + "</td>" +
+                        '<td class="center">' + bill.totalQuantity + "</td>" +
+                        '<td class="right">' + money(bill.total) + "</td>" +
+                        '<td class="center">' +
+                            '<a class="btn btn-ghost btn-sm" href="bill.html?bill=' +
+                                encodeURIComponent(bill.billNumber) + '">View Bill</a>' +
+                        "</td>" +
+                    "</tr>";
+            });
+
+            area.innerHTML =
+                '<div class="table-wrap"><table>' +
+                    "<thead><tr>" +
+                        "<th>Bill Number</th>" +
+                        "<th>Date</th>" +
+                        "<th>Medicines</th>" +
+                        '<th class="center">Units</th>' +
+                        '<th class="right">Total</th>' +
+                        '<th class="center">Action</th>' +
+                    "</tr></thead>" +
+                    "<tbody>" + rows + "</tbody>" +
+                "</table></div>";
+
+        } catch (error) {
+
+            area.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#9888;</div>' +
+                    "<h3>Cannot load your orders</h3>" +
+                    "<p>" + safe(error.message) + "</p>" +
+                "</div>";
+        }
+    }
+
+
+    loadOrders();
+
+</script>
+
+</body>
+</html>

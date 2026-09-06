@@ -1,0 +1,407 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Dashboard | MediCare Admin Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav>
+
+    <a href="dashboard.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag admin">Admin Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="dashboard.html" class="active">Dashboard</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="stock-report.html">Stock Report</a>
+        <a href="sales-report.html">Sales Report</a>
+        <a href="users.html">Users</a>
+        <a href="profile.html">Profile</a>
+        <a href="#" onclick="logoutAdmin(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+
+        <div>
+            <h1>Welcome, <span id="adminName">Admin</span></h1>
+            <p>Live numbers from the MediCare SQLite database.</p>
+        </div>
+
+        <button class="btn btn-ghost" onclick="loadDashboard()">&#8635; Refresh</button>
+
+    </div>
+
+
+    <div id="alertBox" class="alert"></div>
+
+
+    <!-- STOCK -->
+    <h2 style="font-size:16px;margin:0 0 12px;color:#b9c6d8;">
+        STOCK OVERVIEW
+    </h2>
+
+    <div class="stats">
+
+        <div class="stat">
+            <div class="stat-icon">&#128138;</div>
+            <h3 id="totalMedicines">0</h3>
+            <p>Total Medicines</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#128230;</div>
+            <h3 id="totalStock">0</h3>
+            <p>Total Units In Stock</p>
+        </div>
+
+        <div class="stat warn">
+            <div class="stat-icon">&#9888;</div>
+            <h3 id="lowStock">0</h3>
+            <p>Low Stock (10 or less)</p>
+        </div>
+
+        <div class="stat bad">
+            <div class="stat-icon">&#10060;</div>
+            <h3 id="outOfStock">0</h3>
+            <p>Out Of Stock</p>
+        </div>
+
+        <div class="stat warn">
+            <div class="stat-icon">&#8987;</div>
+            <h3 id="expiringSoon">0</h3>
+            <p>Expiring In 30 Days</p>
+        </div>
+
+        <div class="stat bad">
+            <div class="stat-icon">&#128465;</div>
+            <h3 id="expired">0</h3>
+            <p>Already Expired</p>
+        </div>
+
+    </div>
+
+
+    <!-- SALES -->
+    <h2 style="font-size:16px;margin:26px 0 12px;color:#b9c6d8;">
+        SALES OVERVIEW
+    </h2>
+
+    <div class="stats">
+
+        <div class="stat good">
+            <div class="stat-icon">&#8377;</div>
+            <h3 id="totalSales">Rs. 0.00</h3>
+            <p>Total Sales (all time)</p>
+        </div>
+
+        <div class="stat good">
+            <div class="stat-icon">&#128197;</div>
+            <h3 id="todaySales">Rs. 0.00</h3>
+            <p>Today's Sales</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#129534;</div>
+            <h3 id="totalBills">0</h3>
+            <p>Total Bills</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#128722;</div>
+            <h3 id="itemsSold">0</h3>
+            <p>Units Sold</p>
+        </div>
+
+        <div class="stat good">
+            <div class="stat-icon">&#128200;</div>
+            <h3 id="totalProfit">Rs. 0.00</h3>
+            <p>Total Profit Earned</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#127991;</div>
+            <h3 id="totalDiscount">Rs. 0.00</h3>
+            <p>Discount Given</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#128181;</div>
+            <h3 id="stockValue">Rs. 0.00</h3>
+            <p>Stock Value (at cost)</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#128101;</div>
+            <h3 id="totalUsers">0</h3>
+            <p>Registered Users</p>
+        </div>
+
+    </div>
+
+
+    <!-- NEEDS ATTENTION -->
+    <div class="card" style="margin-top:26px;">
+
+        <h2>Needs Your Attention</h2>
+        <p class="card-sub">
+            Medicines that are low, out of stock, expired or expiring soon.
+        </p>
+
+        <div id="attention">
+            <div class="empty">
+                <div class="empty-icon">&#8987;</div>
+                <p>Loading...</p>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- RECENT BILLS -->
+    <div class="card">
+
+        <h2>Recent Bills</h2>
+        <p class="card-sub">The last 8 orders placed by customers.</p>
+
+        <div id="recentBills">
+            <div class="empty">
+                <div class="empty-icon">&#8987;</div>
+                <p>Loading...</p>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- QUICK ACTIONS -->
+    <div class="card">
+
+        <h2>Quick Actions</h2>
+        <p class="card-sub">The tools you use most.</p>
+
+        <div class="btn-row">
+            <a href="medicines.html" class="btn btn-primary">&#10133; Add / Edit Medicine</a>
+            <a href="medicines.html" class="btn btn-ghost">&#128230; Update Stock</a>
+            <a href="stock-report.html" class="btn btn-ghost">&#128202; Stock Report</a>
+            <a href="sales-report.html" class="btn btn-ghost">&#128200; Sales Report</a>
+            <a href="users.html" class="btn btn-ghost">&#128101; Manage Users</a>
+        </div>
+
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>Admin Panel</div>
+</footer>
+
+
+<!-- SQLite runs inside the browser, so there is no server.
+     Load order matters: the engine, then the hashing, then the
+     schema, then the database, and api.js last because it uses
+     all of them. -->
+<script src="../assets/vendor/sql-wasm.js"></script>
+<script src="../assets/js/sha256.js"></script>
+<script src="../assets/js/schema.js"></script>
+<script src="../assets/js/db.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+
+<script>
+
+    /* Nobody can open the admin panel without an admin login. */
+    const admin = requireAdmin();
+
+    document.getElementById("adminName").textContent = admin.name;
+
+
+    async function loadDashboard() {
+
+        hideAlert("alertBox");
+
+        try {
+
+            const stats = await apiGet("/api/reports/dashboard");
+
+            document.getElementById("totalMedicines").textContent = stats.totalMedicines;
+            document.getElementById("totalStock").textContent = stats.totalStock;
+            document.getElementById("lowStock").textContent = stats.lowStock;
+            document.getElementById("outOfStock").textContent = stats.outOfStock;
+            document.getElementById("expiringSoon").textContent = stats.expiringSoon;
+            document.getElementById("expired").textContent = stats.expired;
+
+            document.getElementById("totalSales").textContent = money(stats.totalSales);
+            document.getElementById("todaySales").textContent = money(stats.todaySales);
+            document.getElementById("totalBills").textContent = stats.totalBills;
+            document.getElementById("itemsSold").textContent = stats.itemsSold;
+            document.getElementById("totalProfit").textContent = money(stats.totalProfit);
+            document.getElementById("totalDiscount").textContent = money(stats.totalDiscount);
+            document.getElementById("stockValue").textContent = money(stats.stockValue);
+            document.getElementById("totalUsers").textContent = stats.totalUsers;
+
+            /* be honest about anything the profit figure cannot include */
+            const notes = [];
+
+            if (stats.missingCost > 0) {
+                notes.push(stats.missingCost +
+                    " medicine(s) have no purchase price set");
+            }
+
+            if (stats.linesWithoutCost > 0) {
+                notes.push(stats.linesWithoutCost +
+                    " sold line(s) have no purchase price recorded");
+            }
+
+            if (notes.length > 0) {
+                showAlert("alertBox",
+                    notes.join(", and ") +
+                    ". Their profit is NOT included in the figure above, so the " +
+                    "real profit is higher.",
+                    "info");
+            }
+
+            await loadAttention();
+            await loadRecentBills();
+
+        } catch (error) {
+            showAlert("alertBox", error.message, "error");
+        }
+    }
+
+
+    /** Only the problem medicines, so the admin knows what to reorder. */
+    async function loadAttention() {
+
+        const box = document.getElementById("attention");
+
+        const medicines = await apiGet("/api/medicines");
+
+        const problems = medicines.filter(function (medicine) {
+            return medicine.stockStatus !== "IN STOCK"
+                || medicine.expiryStatus !== "OK";
+        });
+
+        if (problems.length === 0) {
+
+            box.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#9989;</div>' +
+                    "<h3>Everything looks good</h3>" +
+                    "<p>No low stock, no expiring medicines.</p>" +
+                "</div>";
+
+            return;
+        }
+
+        let rows = "";
+
+        problems.forEach(function (medicine) {
+
+            rows +=
+                "<tr>" +
+                    "<td><strong>" + safe(medicine.name) + "</strong></td>" +
+                    "<td>" + safe(medicine.company || "-") + "</td>" +
+                    '<td class="center">' + stockBadge(medicine.quantity) + "</td>" +
+                    "<td>" + formatDate(medicine.expiryDate) + "</td>" +
+                    '<td class="center">' + expiryBadge(medicine.expiryDate) + "</td>" +
+                    '<td class="center">' +
+                        '<a class="btn btn-ghost btn-sm" href="medicines.html">Manage</a>' +
+                    "</td>" +
+                "</tr>";
+        });
+
+        box.innerHTML =
+            '<div class="table-wrap"><table>' +
+                "<thead><tr>" +
+                    "<th>Medicine</th><th>Company</th>" +
+                    '<th class="center">Stock</th>' +
+                    "<th>Expiry Date</th>" +
+                    '<th class="center">Expiry</th>' +
+                    '<th class="center">Action</th>' +
+                "</tr></thead>" +
+                "<tbody>" + rows + "</tbody>" +
+            "</table></div>";
+    }
+
+
+    async function loadRecentBills() {
+
+        const box = document.getElementById("recentBills");
+
+        const bills = await apiGet("/api/orders/bills");
+
+        if (bills.length === 0) {
+
+            box.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#129534;</div>' +
+                    "<h3>No bills yet</h3>" +
+                    "<p>Orders placed in the user panel will show here.</p>" +
+                "</div>";
+
+            return;
+        }
+
+        let rows = "";
+
+        bills.slice(0, 8).forEach(function (bill) {
+
+            rows +=
+                "<tr>" +
+                    "<td><strong>" + safe(bill.billNumber) + "</strong></td>" +
+                    "<td>" + safe(bill.customerName) + "</td>" +
+                    "<td>" + safe(bill.userEmail || "Counter sale") + "</td>" +
+                    "<td>" + formatDateTime(bill.orderDate) + "</td>" +
+                    '<td class="center">' + bill.itemCount + "</td>" +
+                    '<td class="right">' + money(bill.discount) + "</td>" +
+                    '<td class="right">' + money(bill.total) + "</td>" +
+                    '<td class="right">' +
+                        (bill.costKnown
+                            ? '<span style="color:#35d07f;">' + money(bill.profit) +
+                              "</span>"
+                            : '<span class="badge orange">COST NOT SET</span>') +
+                    "</td>" +
+                "</tr>";
+        });
+
+        box.innerHTML =
+            '<div class="table-wrap"><table>' +
+                "<thead><tr>" +
+                    "<th>Bill Number</th><th>Customer</th><th>Account</th>" +
+                    "<th>Date</th>" +
+                    '<th class="center">Items</th>' +
+                    '<th class="right">Discount</th>' +
+                    '<th class="right">Total</th>' +
+                    '<th class="right">Profit</th>' +
+                "</tr></thead>" +
+                "<tbody>" + rows + "</tbody>" +
+            "</table></div>" +
+            '<div style="margin-top:14px;">' +
+                '<a href="sales-report.html" class="btn btn-ghost btn-sm">' +
+                "See the full sales report &rarr;</a></div>";
+    }
+
+
+    loadDashboard();
+
+</script>
+
+</body>
+</html>

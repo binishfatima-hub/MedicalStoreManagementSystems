@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>About | MediCare User Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav>
+
+    <a href="home.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag">User Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="home.html">Home</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="my-orders.html">My Orders</a>
+        <a href="about.html" class="active">About</a>
+        <a href="contact.html">Contact</a>
+        <a href="profile.html">Profile</a>
+        <a href="cart.html" class="cart-link" id="cartLink">Cart (0)</a>
+        <a href="#" onclick="logoutUser(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+        <div>
+            <h1>About <span>MediCare</span></h1>
+            <p>A simple, complete medical store management system.</p>
+        </div>
+    </div>
+
+
+    <div class="card">
+
+        <h2>What is MediCare?</h2>
+
+        <p class="card-sub">
+            MediCare is a Medical Store Management System built as a college
+            project. It has two separate parts that share one SQLite database.
+        </p>
+
+        <div class="stats" style="margin-top:6px;">
+
+            <div class="stat">
+                <div class="stat-icon">&#128100;</div>
+                <h3 style="font-size:19px;">User Panel</h3>
+                <p>
+                    Customers register, browse the medicine stock, add
+                    medicines to a cart, place an order and get a printable
+                    GST bill.
+                </p>
+            </div>
+
+            <div class="stat">
+                <div class="stat-icon">&#128273;</div>
+                <h3 style="font-size:19px;">Admin Panel</h3>
+                <p>
+                    The store owner adds, edits and deletes medicines,
+                    updates stock, manages users and reads the stock and
+                    sales reports.
+                </p>
+            </div>
+
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <h2>How it is built</h2>
+        <p class="card-sub">Three simple layers, nothing hidden.</p>
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Layer</th>
+                        <th>Technology</th>
+                        <th>What it does</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr>
+                        <td>Front end</td>
+                        <td>HTML, CSS, JavaScript</td>
+                        <td>The pages you are looking at right now.</td>
+                    </tr>
+                    <tr>
+                        <td>Rules</td>
+                        <td>JavaScript (api.js)</td>
+                        <td>
+                            Checks every request and does the calculations -
+                            prices, discounts, GST, stock and profit.
+                        </td>
+                    </tr>
+                    <tr>
+                        <td>Database</td>
+                        <td>SQLite (running in the browser)</td>
+                        <td>
+                            Real tables and real SQL for admins, users,
+                            medicines and orders. Nothing here is dummy data -
+                            every number is read from the database.
+                        </td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+    </div>
+
+
+    <div class="card">
+
+        <h2>Store Policies</h2>
+        <p class="card-sub">Please read before ordering.</p>
+
+        <div class="stats" style="margin-top:6px;">
+
+            <div class="stat">
+                <div class="stat-icon">&#128176;</div>
+                <h3 style="font-size:17px;">GST 5%</h3>
+                <p>Every bill includes 5% GST on medicines.</p>
+            </div>
+
+            <div class="stat">
+                <div class="stat-icon">&#128197;</div>
+                <h3 style="font-size:17px;">Expiry Checked</h3>
+                <p>Expired medicines can never be added to a cart.</p>
+            </div>
+
+            <div class="stat">
+                <div class="stat-icon">&#128230;</div>
+                <h3 style="font-size:17px;">Live Stock</h3>
+                <p>Stock reduces the moment your order is placed.</p>
+            </div>
+
+            <div class="stat">
+                <div class="stat-icon">&#128683;</div>
+                <h3 style="font-size:17px;">No Returns</h3>
+                <p>Medicines once sold cannot be returned.</p>
+            </div>
+
+        </div>
+
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>User Panel</div>
+</footer>
+
+
+<!-- SQLite runs inside the browser, so there is no server.
+     Load order matters: the engine, then the hashing, then the
+     schema, then the database, and api.js last because it uses
+     all of them. -->
+<script src="../assets/vendor/sql-wasm.js"></script>
+<script src="../assets/js/sha256.js"></script>
+<script src="../assets/js/schema.js"></script>
+<script src="../assets/js/db.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/cart.js"></script>
+
+<script>
+    requireUser();
+    refreshCartBadge();
+</script>
+
+</body>
+</html>

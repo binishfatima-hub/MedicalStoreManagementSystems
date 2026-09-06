@@ -1,5 +1,15 @@
 # MediCare — Medical Store Management System
 
+> ### Two ways to run this project
+>
+> **1. No installation** — `docs/` holds the whole thing as one website that
+> runs on GitHub Pages. Real SQLite, running inside the browser. No Java, no
+> MySQL, nothing to set up: open the link and use it. See `docs/README.md`.
+>
+> **2. The full Java project** — `MedicareBackend/` (Java + Spring Boot) and
+> `MediCareWebsite/`, with MySQL. This is the original, and everything below
+> describes it.
+
 A college project with **two separate panels** sharing **one MySQL database**:
 
 | | Admin Panel | User Panel |
@@ -219,6 +229,91 @@ files out, so only the real source code is uploaded.
 
 This was tested by building a brand-new empty database from these two files
 and logging in with all three accounts — they work.
+
+---
+
+## 2c. Putting the website online (a link anyone can open)
+
+GitHub only stores the code, it cannot RUN Java. To get a link that works
+for anyone, two free services are used:
+
+| What | Who runs it | Free? |
+|---|---|---|
+| The Java app + website | **Render** | yes (sleeps after 15 min idle) |
+| The MySQL database | **Aiven** | yes (1 GB, no card needed) |
+
+The database is kept OUTSIDE the app on purpose. Render rebuilds the app's
+disk every time it restarts, so anything saved inside it would be lost.
+Aiven is a separate service, so the data stays safe and keeps building up.
+
+### Step 1 - Create the free MySQL on Aiven
+
+1. Sign up at <https://aiven.io> (no credit card)
+2. **Create service** -> **MySQL** -> pick the **Free** plan -> create
+3. Wait until it says **Running**, then open the service page and copy:
+   Host, Port, User, Password, Database name
+
+### Step 2 - Build the tables in it
+
+Open **MySQL Workbench** -> new connection -> put in the Aiven details above
+-> connect. Then run these two files against it, in this order:
+
+1. `database/schema.sql`   - tables + the admin login
+2. `database/seed-data.sql` - 50 medicines + 2 sample customer logins
+
+> `schema.sql` starts with `CREATE DATABASE IF NOT EXISTS medical_store`.
+> Aiven gives you a database called `defaultdb`. Either create
+> `medical_store` (allowed), or change that line and the `USE` line to
+> `defaultdb` in both files before running them.
+
+### Step 3 - Deploy the app on Render
+
+1. Sign up at <https://render.com> with your **GitHub** account
+2. **New +** -> **Web Service** -> choose this repository
+3. Settings:
+   - **Language / Runtime**: `Docker` (the `Dockerfile` in the root is used)
+   - **Instance type**: `Free`
+4. Open **Environment** and add three variables:
+
+   | Key | Value |
+   |---|---|
+   | `DB_URL` | `jdbc:mysql://HOST:PORT/medical_store?sslMode=REQUIRED` |
+   | `DB_USERNAME` | the Aiven user (usually `avnadmin`) |
+   | `DB_PASSWORD` | the Aiven password |
+
+   Fill HOST and PORT from Step 1. Type the password **directly into Render**
+   - that way the real password is never written in the code or on GitHub.
+
+5. **Create Web Service** and wait for the first build (5-10 minutes)
+
+Render gives a link like `https://medicare-xxxx.onrender.com`. That is the
+link you can share - it opens the website, and everything works.
+
+### Things to know about the free plan
+
+- After **15 minutes** with nobody using it, the app goes to sleep. The next
+  person to open the link waits about **30-60 seconds** for it to wake up.
+  After that it is fast. Nothing is lost - only the app slept, not the data.
+- **The data is safe.** It lives in Aiven, not in the app, so restarts and
+  sleeps do not touch it. Whatever anyone registers or orders stays there.
+- Aiven also powers off a database that is unused for a long time, but it
+  emails you first.
+
+### After changing the code
+
+Commit and push in GitHub Desktop. Render sees the push and rebuilds the
+site by itself - nothing else to do.
+
+### What was changed to make this work
+
+Nothing about running it on your own computer changed. The pieces added:
+
+| File | What it does |
+|---|---|
+| `Dockerfile` | tells Render how to build and run the project |
+| `application.properties` | reads `DB_URL` / `DB_USERNAME` / `DB_PASSWORD` / `PORT` from the environment, and falls back to your local MySQL when they are not set |
+| `pom.xml` | packs `MediCareWebsite` inside the jar, so the app can serve the website anywhere; Java set to 21 (Java 26 is too new for most hosting) |
+| `assets/js/api.js` | works out the backend address from the page address, so the same files work locally and online |
 
 ---
 

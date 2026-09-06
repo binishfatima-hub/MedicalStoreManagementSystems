@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Medicines | MediCare User Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<nav>
+
+    <a href="home.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag">User Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="home.html">Home</a>
+        <a href="medicines.html" class="active">Medicines</a>
+        <a href="my-orders.html">My Orders</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+        <a href="profile.html">Profile</a>
+        <a href="cart.html" class="cart-link" id="cartLink">Cart (0)</a>
+        <a href="#" onclick="logoutUser(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+
+        <div>
+            <h1>Available <span>Medicines</span></h1>
+            <p>Every medicine below is read live from the store database.</p>
+        </div>
+
+        <button class="btn btn-ghost" onclick="loadMedicines()">
+            &#8635; Refresh
+        </button>
+
+    </div>
+
+
+    <div class="toolbar">
+
+        <input type="text" id="searchBox"
+               placeholder="Search by medicine name or company...">
+
+        <select id="stockFilter">
+            <option value="all">All medicines</option>
+            <option value="available">Only available</option>
+            <option value="low">Low stock</option>
+        </select>
+
+        <div class="spacer"></div>
+
+        <div style="color:#8fa0b6;font-size:13px;">
+            Showing <strong id="shownCount" style="color:#f5f9ff;">0</strong> medicines
+        </div>
+
+    </div>
+
+
+    <div id="alertBox" class="alert"></div>
+
+    <div id="medicineGrid" class="medicine-grid">
+
+        <div class="empty" style="grid-column:1/-1;">
+            <div class="empty-icon">&#8987;</div>
+            <p>Loading medicines from the database...</p>
+        </div>
+
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>User Panel</div>
+</footer>
+
+
+<!-- SQLite runs inside the browser, so there is no server.
+     Load order matters: the engine, then the hashing, then the
+     schema, then the database, and api.js last because it uses
+     all of them. -->
+<script src="../assets/vendor/sql-wasm.js"></script>
+<script src="../assets/js/sha256.js"></script>
+<script src="../assets/js/schema.js"></script>
+<script src="../assets/js/db.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/cart.js"></script>
+
+<script>
+
+    const user = requireUser();
+
+    refreshCartBadge();
+
+    /* everything we downloaded, so searching does not hit the server again */
+    let allMedicines = [];
+
+
+    async function loadMedicines() {
+
+        hideAlert("alertBox");
+
+        try {
+            allMedicines = await apiGet("/api/medicines");
+            applyFilters();
+
+        } catch (error) {
+
+            document.getElementById("medicineGrid").innerHTML =
+                '<div class="empty" style="grid-column:1/-1;">' +
+                    '<div class="empty-icon">&#9888;</div>' +
+                    "<h3>Cannot load medicines</h3>" +
+                    "<p>" + safe(error.message) + "</p>" +
+                "</div>";
+        }
+    }
+
+
+    /** Applies the search box and the dropdown together. */
+    function applyFilters() {
+
+        const keyword =
+            document.getElementById("searchBox").value.trim().toLowerCase();
+
+        const filter = document.getElementById("stockFilter").value;
+
+        const list = allMedicines.filter(function (medicine) {
+
+            const name = (medicine.name || "").toLowerCase();
+            const company = (medicine.company || "").toLowerCase();
+
+            const matchesSearch =
+                keyword === "" ||
+                name.indexOf(keyword) >= 0 ||
+                company.indexOf(keyword) >= 0;
+
+            const quantity = Number(medicine.quantity || 0);
+
+            let matchesFilter = true;
+
+            if (filter === "available") {
+                matchesFilter = quantity > 0;
+            }
+
+            if (filter === "low") {
+                matchesFilter = quantity > 0 && quantity <= 10;
+            }
+
+            return matchesSearch && matchesFilter;
+        });
+
+        render(list);
+    }
+
+
+    function render(list) {
+
+        const grid = document.getElementById("medicineGrid");
+
+        document.getElementById("shownCount").textContent = list.length;
+
+        if (list.length === 0) {
+
+            grid.innerHTML =
+                '<div class="empty" style="grid-column:1/-1;">' +
+                    '<div class="empty-icon">&#128269;</div>' +
+                    "<h3>No medicines found</h3>" +
+                    "<p>Try a different name, or ask the admin to add it.</p>" +
+                "</div>";
+
+            return;
+        }
+
+        grid.innerHTML = list.map(card).join("");
+    }
+
+
+    function card(medicine) {
+
+        const quantity = Number(medicine.quantity || 0);
+        const soldOut = quantity <= 0;
+        const expired = medicine.expiryStatus === "EXPIRED";
+
+        const canBuy = !soldOut && !expired;
+
+        return '' +
+            '<div class="medicine-card">' +
+
+                '<div class="pill-icon">&#128138;</div>' +
+
+                "<h3>" + safe(medicine.name) + "</h3>" +
+                '<div class="company">' + safe(medicine.company || "-") + "</div>" +
+
+                '<div class="meta">' +
+                    "<div><span>Stock</span>" + stockBadge(quantity) + "</div>" +
+                    "<div><span>Expiry</span><span>" +
+                        formatDate(medicine.expiryDate) + "</span></div>" +
+                    "<div><span>Status</span>" +
+                        expiryBadge(medicine.expiryDate) + "</div>" +
+                "</div>" +
+
+                priceBlock(medicine) +
+
+                '<div class="buy-row">' +
+                    '<input type="number" min="1" max="' + quantity + '" value="1" ' +
+                        'id="qty_' + medicine.id + '" ' +
+                        (canBuy ? "" : "disabled") + ">" +
+
+                    '<button class="btn btn-primary btn-sm" style="flex:1;" ' +
+                        'onclick="addMedicine(' + medicine.id + ')" ' +
+                        (canBuy ? "" : "disabled") + ">" +
+                        (soldOut ? "Out of Stock"
+                                 : (expired ? "Expired" : "Add to Cart")) +
+                    "</button>" +
+                "</div>" +
+
+            "</div>";
+    }
+
+
+    /**
+     * The price shown on a card.
+     * No discount  ->  just the price.
+     * Discount     ->  old price struck through, new price, and a % badge.
+     */
+    function priceBlock(medicine) {
+
+        const discountPercent = Number(medicine.discountPercent || 0);
+
+        if (discountPercent <= 0) {
+            return '<div class="price">' + money(medicine.price) + "</div>";
+        }
+
+        return '' +
+            '<div class="price">' +
+                '<span class="mrp-cut">' + money(medicine.price) + "</span>" +
+                money(medicine.finalPrice) +
+            "</div>" +
+            '<div style="margin:-8px 0 12px;">' +
+                '<span class="badge blue">' + trimNumber(discountPercent) +
+                "% OFF &bull; you save " +
+                money(medicine.discountAmount) + "</span>" +
+            "</div>";
+    }
+
+
+    function addMedicine(id) {
+
+        const medicine = allMedicines.find(function (m) { return m.id === id; });
+
+        if (!medicine) {
+            return;
+        }
+
+        const input = document.getElementById("qty_" + id);
+        const wanted = Number(input.value) || 1;
+
+        const available = Number(medicine.quantity || 0);
+
+        /* how many of this medicine are already in the cart */
+        const inCart = getCart().find(function (item) { return item.id === id; });
+        const already = inCart ? inCart.quantity : 0;
+
+        if (already + wanted > available) {
+
+            toast("Only " + available + " units available (you already have " +
+                  already + " in the cart)", "error");
+            return;
+        }
+
+        addToCart(medicine, wanted);
+
+        refreshCartBadge();
+
+        toast(wanted + " x " + medicine.name + " added to cart", "success");
+
+
+        input.value = 1;
+    }
+
+
+    document.getElementById("searchBox")
+        .addEventListener("input", applyFilters);
+
+    document.getElementById("stockFilter")
+        .addEventListener("change", applyFilters);
+
+
+    loadMedicines();
+
+</script>
+
+</body>
+</html>

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Home | MediCare User Panel</title>
+
+    <link rel="stylesheet" href="../assets/css/style.css">
+</head>
+
+<body>
+
+<!-- NAVBAR -->
+<nav>
+
+    <a href="home.html" class="logo">
+        <div class="logo-icon">&#10010;</div>
+        <span class="logo-text">Medi<span>Care</span></span>
+        <span class="panel-tag">User Panel</span>
+    </a>
+
+    <div class="nav-links">
+        <a href="home.html" class="active">Home</a>
+        <a href="medicines.html">Medicines</a>
+        <a href="my-orders.html">My Orders</a>
+        <a href="about.html">About</a>
+        <a href="contact.html">Contact</a>
+        <a href="profile.html">Profile</a>
+        <a href="cart.html" class="cart-link" id="cartLink">Cart (0)</a>
+        <a href="#" onclick="logoutUser(); return false;">Logout</a>
+    </div>
+
+</nav>
+
+
+<main>
+
+    <div class="page-head">
+
+        <div>
+            <h1>Hello, <span id="userName">...</span></h1>
+            <p>Welcome to MediCare. Browse medicines and place your order.</p>
+        </div>
+
+        <a href="medicines.html" class="btn btn-primary">
+            Browse Medicines
+        </a>
+
+    </div>
+
+
+    <!-- the user's own numbers, read live from the database -->
+    <div class="stats">
+
+        <div class="stat">
+            <div class="stat-icon">&#128138;</div>
+            <h3 id="availableMedicines">0</h3>
+            <p>Medicines Available</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#128722;</div>
+            <h3 id="cartItems">0</h3>
+            <p>Items In Your Cart</p>
+        </div>
+
+        <div class="stat">
+            <div class="stat-icon">&#129534;</div>
+            <h3 id="myOrders">0</h3>
+            <p>My Total Orders</p>
+        </div>
+
+        <div class="stat good">
+            <div class="stat-icon">&#8377;</div>
+            <h3 id="mySpend">Rs. 0.00</h3>
+            <p>Total Amount Spent</p>
+        </div>
+
+    </div>
+
+
+    <!-- LAST ORDER -->
+    <div class="card">
+
+        <h2>Your Last Order</h2>
+        <p class="card-sub">The most recent bill on your account.</p>
+
+        <div id="lastOrder">
+            <div class="empty">
+                <div class="empty-icon">&#8987;</div>
+                <p>Loading...</p>
+            </div>
+        </div>
+
+    </div>
+
+
+    <!-- QUICK LINKS -->
+    <div class="card">
+
+        <h2>Quick Links</h2>
+        <p class="card-sub">Jump straight to what you need.</p>
+
+        <div class="btn-row">
+            <a href="medicines.html" class="btn btn-ghost">&#128138; Browse Medicines</a>
+            <a href="cart.html" class="btn btn-ghost">&#128722; My Cart</a>
+            <a href="my-orders.html" class="btn btn-ghost">&#129534; My Orders</a>
+            <a href="profile.html" class="btn btn-ghost">&#128100; Profile &amp; Password</a>
+            <a href="contact.html" class="btn btn-ghost">&#128222; Contact Store</a>
+        </div>
+
+    </div>
+
+</main>
+
+
+<footer>
+    <div>&copy; 2026 <strong>MediCare</strong> Medical Store Management System</div>
+    <div>User Panel</div>
+</footer>
+
+
+<!-- SQLite runs inside the browser, so there is no server.
+     Load order matters: the engine, then the hashing, then the
+     schema, then the database, and api.js last because it uses
+     all of them. -->
+<script src="../assets/vendor/sql-wasm.js"></script>
+<script src="../assets/js/sha256.js"></script>
+<script src="../assets/js/schema.js"></script>
+<script src="../assets/js/db.js"></script>
+<script src="../assets/js/api.js"></script>
+<script src="../assets/js/session.js"></script>
+<script src="../assets/js/common.js"></script>
+<script src="../assets/js/cart.js"></script>
+
+<script>
+
+    /* Nobody can open this page without logging in first. */
+    const user = requireUser();
+
+    document.getElementById("userName").textContent = user.name;
+
+    refreshCartBadge();
+    document.getElementById("cartItems").textContent = cartCount();
+
+
+    async function loadHome() {
+
+        try {
+
+            /* how many medicines the store has */
+            const medicines = await apiGet("/api/medicines");
+
+            document.getElementById("availableMedicines").textContent =
+                medicines.filter(function (m) { return m.quantity > 0; }).length;
+
+
+            /* this user's own bills */
+            const bills = await apiGet("/api/orders/bills/user/" + user.id);
+
+            document.getElementById("myOrders").textContent = bills.length;
+
+            let spent = 0;
+
+            bills.forEach(function (bill) {
+                spent = spent + Number(bill.total || 0);
+            });
+
+            document.getElementById("mySpend").textContent = money(spent);
+
+            showLastOrder(bills);
+
+        } catch (error) {
+
+            document.getElementById("lastOrder").innerHTML =
+                '<div class="alert error show">' + safe(error.message) + '</div>';
+        }
+    }
+
+
+    function showLastOrder(bills) {
+
+        const box = document.getElementById("lastOrder");
+
+        if (bills.length === 0) {
+
+            box.innerHTML =
+                '<div class="empty">' +
+                    '<div class="empty-icon">&#129534;</div>' +
+                    '<h3>No orders yet</h3>' +
+                    '<p>Your bills will appear here after your first order.</p>' +
+                '</div>';
+
+            return;
+        }
+
+        const bill = bills[0];
+
+        let rows = "";
+
+        bill.items.forEach(function (item) {
+
+            rows +=
+                "<tr>" +
+                    "<td>" + safe(item.medicineName) + "</td>" +
+                    '<td class="center">' + item.quantity + "</td>" +
+                    '<td class="right">' + money(item.price) + "</td>" +
+                    '<td class="right">' + money(item.total) + "</td>" +
+                "</tr>";
+        });
+
+        box.innerHTML =
+            '<div class="toolbar">' +
+                "<div><strong>" + safe(bill.billNumber) + "</strong>" +
+                '<div style="color:#8fa0b6;font-size:12.5px;">' +
+                    formatDateTime(bill.orderDate) + "</div></div>" +
+                '<div class="spacer"></div>' +
+                '<a class="btn btn-ghost btn-sm" href="bill.html?bill=' +
+                    encodeURIComponent(bill.billNumber) + '">View Bill</a>' +
+            "</div>" +
+            '<div class="table-wrap"><table>' +
+                "<thead><tr>" +
+                    "<th>Medicine</th>" +
+                    '<th class="center">Qty</th>' +
+                    '<th class="right">Price</th>' +
+                    '<th class="right">Total</th>' +
+                "</tr></thead>" +
+                "<tbody>" + rows + "</tbody>" +
+                '<tfoot><tr>' +
+                    '<td colspan="3" class="right">Grand Total</td>' +
+                    '<td class="right">' + money(bill.total) + "</td>" +
+                "</tr></tfoot>" +
+            "</table></div>";
+    }
+
+
+    loadHome();
+
+</script>
+
+</body>
+</html>
